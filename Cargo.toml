@@ -1,0 +1,10 @@
+[package]
+name = "productivity-oni"
+version = "0.0.1"
+authors = ["Mateusz Cegiełka <mateusz@cegla.net>"]
+edition = "2018"
+description = "Integrated productivity manager to regain control of your computer and Internet use"
+repository = "https://github.com/pustaczek/productivity-oni"
+keywords = ["productivity"]
+
+[dependencies]
