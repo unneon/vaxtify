@@ -1,7 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::Deserialize;
-use std::io;
-use std::io::Read;
 use std::net::{TcpListener, TcpStream};
 
 pub struct Connection {
@@ -36,20 +34,11 @@ impl Connection {
 		loop {
 			let listener = &mut self.listener;
 			let connection = self.connection.get_or_insert_with(|| listener.accept().unwrap().0);
-			if let Ok(raw) = read_message(connection) {
+			if let Ok(raw) = webext::read(connection) {
 				break serde_json::from_slice(&raw).unwrap();
 			} else {
 				self.connection = None;
 			}
 		}
 	}
-}
-
-fn read_message(mut input: impl Read) -> Result<Vec<u8>, io::Error> {
-	let mut header = [0; 4];
-	input.read_exact(&mut header)?;
-	let len = u32::from_le_bytes(header) as usize;
-	let mut buf = vec![0; len];
-	input.read_exact(&mut buf)?;
-	Ok(buf)
 }
