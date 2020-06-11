@@ -12,21 +12,21 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --all
     - name: Test
-      run: cargo test --verbose
+      run: cargo test --all
   Format:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Format
-      run: cargo fmt -- --check
+      run: cargo fmt --all -- --check
   Lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
     - name: Lint
-      run: cargo clippy -- -D warnings
+      run: cargo clippy --all -- -D warnings
   Coverage:
     runs-on: ubuntu-latest
     env:
@@ -40,9 +40,9 @@ jobs:
     - name: Install grcov
       run: curl -L https://github.com/mozilla/grcov/releases/download/v0.5.15/grcov-linux-x86_64.tar.bz2 | tar jxf -
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --all
     - name: Test
-      run: cargo test --verbose
+      run: cargo test --all
     - name: Generate coverage report
       run: ./grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing -o lcov.info
     - name: Send coverage report
