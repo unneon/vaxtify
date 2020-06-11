@@ -1,0 +1,21 @@
+{
+  "manifest_version": 2,
+  "name": "Distraction Oni",
+  "description": "Integrated productivity manager to regain control of your computer and Internet use",
+  "version": "0.0.1",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "distraction_oni@pustaczek.dev",
+      "strict_min_version": "50.0"
+    }
+  },
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  },
+  "permissions": [
+    "nativeMessaging",
+    "tabs"
+  ]
+}

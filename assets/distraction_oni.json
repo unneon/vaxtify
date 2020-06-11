@@ -1,0 +1,9 @@
+{
+  "name": "distraction_oni",
+  "description": "Integrated productivity manager to regain control of your computer and Internet use",
+  "path": "/home/matcegla/Projects/distraction-oni/target/debug/distraction-oni-webext",
+  "type": "stdio",
+  "allowed_extensions": [
+    "distraction_oni@pustaczek.dev"
+  ]
+}
