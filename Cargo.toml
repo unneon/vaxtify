@@ -1,10 +1,10 @@
 [package]
-name = "productivity-oni"
+name = "distraction-oni"
 version = "0.0.1"
 authors = ["Mateusz Cegiełka <mateusz@cegla.net>"]
 edition = "2018"
-description = "Integrated productivity manager to regain control of your computer and Internet use"
-repository = "https://github.com/pustaczek/productivity-oni"
+description = "Integrated distraction manager to regain control of your computer and Internet use"
+repository = "https://github.com/pustaczek/distraction-oni"
 license = "MPL-2.0"
 keywords = ["productivity"]
 

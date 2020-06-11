@@ -12,6 +12,7 @@ pub struct QueryTree {
 	pub children: Vec<Window>,
 }
 
+#[derive(Debug)]
 pub struct Property<T> {
 	pub kind: Atom,
 	pub kind_name: String,
@@ -64,8 +65,8 @@ impl Display {
 		Ok(name)
 	}
 
-	pub fn get_window_pid(&self, window: Window) -> Option<u32> {
-		let prop = self.get_window_property::<u32>(window, "_NET_WM_PID").unwrap()?;
+	pub fn get_window_pid(&self, window: Window) -> Option<i32> {
+		let prop = self.get_window_property::<i32>(window, "_NET_WM_PID").unwrap()?;
 		assert_eq!(prop.kind_name, "CARDINAL");
 		assert_eq!(prop.items.len(), 1);
 		Some(prop.items[0])
