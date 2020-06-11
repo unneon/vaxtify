@@ -42,7 +42,7 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Test
-      run: cargo run --verbose
+      run: cargo test --verbose
     - name: Generate coverage report
       run: ./grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing -o lcov.info
     - name: Send coverage report

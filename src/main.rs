@@ -1,11 +1,12 @@
-fn add(a: i32, b: i32) -> i32 {
-	match a.checked_add(b) {
-		Some(c) => c,
-		None => i32::MAX,
-	}
-}
+mod input_x11;
 
-fn main() {
-	assert_eq!(add(2, 2), 4);
-	assert_eq!(add(2_000_000_000, 2_000_000_000), i32::MAX);
+fn main() -> Result<(), ()> {
+	let display = input_x11::Display::open()?;
+	let tree = display.query_tree()?;
+	for child in tree.children {
+		let attributes = display.get_window_attributes(child)?;
+		let name = display.get_window_name(child);
+		println!("Found window called: {:?}\n{:#?}", name, attributes);
+	}
+	Ok(())
 }
