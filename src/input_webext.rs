@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::Deserialize;
 use std::io;
 use std::io::Read;
@@ -11,6 +12,7 @@ pub struct Connection {
 #[derive(Debug, Deserialize)]
 pub struct Message {
 	tab: i64,
+	timestamp: DateTime<Utc>,
 	#[serde(flatten)]
 	event: Event,
 }
