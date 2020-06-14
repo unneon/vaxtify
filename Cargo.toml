@@ -12,7 +12,7 @@ default-run = "distraction-oni"
 [dependencies]
 chrono = "0.4"
 json = "0.12"
-webext = { path = "webext-crate" }
+webext = { path = "webext" }
 #x11 = { version = "2.18", features = ["xlib"] }
 
 [[bin]]
@@ -22,5 +22,5 @@ path = "src/main-webext.rs"
 [workspace]
 members = [
     ".",
-    "webext-crate",
+    "webext",
 ]
