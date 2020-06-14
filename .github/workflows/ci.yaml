@@ -44,7 +44,7 @@ jobs:
     - name: Test
       run: cargo test --all
     - name: Generate coverage report
-      run: ./grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing -o lcov.info
+      run: ./grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing --ignore "/*" -o lcov.info
     - name: Send coverage report
       run: bash <(curl -s https://codecov.io/bash) -f lcov.info
       env:
