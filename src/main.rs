@@ -1,9 +1,21 @@
+use chrono::{DateTime, Utc};
+
 mod input_webext;
-// mod input_x11;
+
+#[derive(Debug, PartialEq)]
+pub enum Activity {
+	Website { domain: String },
+}
+
+#[derive(Debug)]
+pub struct Event {
+	activity: Activity,
+	timestamp: DateTime<Utc>,
+	is_active: bool,
+}
 
 fn main() {
-	let mut conn = input_webext::Connection::new();
-	loop {
-		println!("{:?}", conn.read());
+	for event in input_webext::Connection::new() {
+		println!("{:?}", event);
 	}
 }
