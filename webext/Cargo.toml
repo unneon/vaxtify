@@ -1,7 +1,0 @@
-[package]
-name = "webext"
-version = "0.1.0"
-authors = ["Mateusz Cegiełka <mateusz@cegla.net>"]
-edition = "2018"
-
-[dependencies]

@@ -1,9 +1,11 @@
+use crate::config::Config;
 use crate::slots::Slots;
 use chrono::{DateTime, Utc};
 use std::time::Duration;
 
-mod input_webext;
+mod config;
 mod slots;
+mod sources;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Activity {
@@ -18,15 +20,15 @@ pub struct Event {
 }
 
 fn main() {
+	let config = Config::load();
+	sources::webext::proxy::check_and_run(config.sources.webext.port);
 	let mut slots = Slots::new();
-	let mut conn = input_webext::Connection::new();
+	let mut conn = sources::webext::WebExt::new(config.sources.webext.port);
 	loop {
 		let event = conn.next_timeout(Duration::from_secs(1));
 		if let Some(event) = event {
 			println!("{:?}", event);
 			slots.process_event(event);
-		} else {
-			println!("..");
 		}
 	}
 }
