@@ -1,15 +1,16 @@
 use crate::{Activity, Event};
 use chrono::{DateTime, Utc};
 use std::collections::{HashMap, VecDeque};
-use std::net::{TcpListener, TcpStream};
+use std::net::TcpListener;
+use std::sync::mpsc;
+use std::time::{Duration, Instant};
 use url::Url;
 
 pub struct Connection {
-	listener: TcpListener,
-	connection: Option<TcpStream>,
 	tabs: HashMap<i64, String>,
 	sites: HashMap<String, i64>,
 	buffer: VecDeque<Event>,
+	message_rx: mpsc::Receiver<Message>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -31,36 +32,40 @@ enum MessageKind {
 impl Connection {
 	pub fn new() -> Connection {
 		let listener = TcpListener::bind("localhost:56154").unwrap();
-		Connection { listener, connection: None, tabs: HashMap::new(), sites: HashMap::new(), buffer: VecDeque::new() }
+		let (message_tx, message_rx) = mpsc::sync_channel(0);
+		std::thread::spawn(move || receive_message_loop(listener, message_tx));
+		Connection { tabs: HashMap::new(), sites: HashMap::new(), buffer: VecDeque::new(), message_rx }
 	}
 
-	fn fill_buffer(&mut self) {
-		let message = self.read_message();
-		self.process_message(message);
-	}
-
-	fn read_message(&mut self) -> Message {
-		match &mut self.connection {
-			Some(connection) => match webext::read(connection) {
-				Ok(raw) => parse_message(&raw),
-				Err(_) => {
-					self.connection = None;
-					Message { timestamp: Utc::now(), kind: MessageKind::BrowserShutdown }
-				}
-			},
-			None => {
-				self.connection = Some(self.listener.accept().unwrap().0);
-				Message { timestamp: Utc::now(), kind: MessageKind::BrowserLaunch }
+	pub fn next_timeout(&mut self, timeout: Duration) -> Option<Event> {
+		let deadline = Instant::now() + timeout;
+		loop {
+			let timeout = deadline.checked_duration_since(Instant::now()).unwrap_or_default();
+			match self.buffer.pop_front() {
+				Some(event) => break Some(event),
+				None => match self.fill_buffer(timeout) {
+					Ok(()) => (),
+					Err(mpsc::RecvTimeoutError::Timeout) => break None,
+					e => e.unwrap(),
+				},
 			}
 		}
+	}
+
+	fn fill_buffer(&mut self, timeout: Duration) -> Result<(), mpsc::RecvTimeoutError> {
+		let message = self.message_rx.recv_timeout(timeout)?;
+		self.process_message(message);
+		Ok(())
 	}
 
 	fn process_message(&mut self, message: Message) {
 		match message.kind {
 			MessageKind::Created { .. } => (),
 			MessageKind::Removed { tab } => {
-				let domain = self.tabs.remove(&tab).unwrap();
-				self.site_decrement(domain, message.timestamp);
+				let domain = self.tabs.remove(&tab);
+				if let Some(domain) = domain {
+					self.site_decrement(domain, message.timestamp);
+				}
 			}
 			MessageKind::Updated { tab, url } => {
 				let new_domain = Url::parse(&url).unwrap().domain().map(str::to_owned);
@@ -107,16 +112,23 @@ impl Connection {
 	}
 }
 
-impl Iterator for Connection {
-	type Item = Event;
-
-	fn next(&mut self) -> Option<Event> {
-		loop {
-			match self.buffer.pop_front() {
-				Some(event) => break Some(event),
-				None => self.fill_buffer(),
+fn receive_message_loop(listener: TcpListener, tx: mpsc::SyncSender<Message>) {
+	let mut connection_slot = None;
+	loop {
+		let message = match &mut connection_slot {
+			Some(connection) => match webext::read(connection) {
+				Ok(raw) => parse_message(&raw),
+				Err(_) => {
+					connection_slot = None;
+					Message { timestamp: Utc::now(), kind: MessageKind::BrowserShutdown }
+				}
+			},
+			None => {
+				connection_slot = Some(listener.accept().unwrap().0);
+				Message { timestamp: Utc::now(), kind: MessageKind::BrowserLaunch }
 			}
-		}
+		};
+		tx.send(message).unwrap();
 	}
 }
 
