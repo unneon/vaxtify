@@ -19,7 +19,7 @@ pub struct SourceWebext {
 	pub port: u16,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct Rule {
 	#[serde(deserialize_with = "serde_time::minutes")]
 	pub allowed_minutes: Duration,

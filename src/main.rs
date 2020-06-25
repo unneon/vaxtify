@@ -35,7 +35,8 @@ fn main() {
 		if let Some(event) = conn.next_timeout(Duration::from_secs(10)) {
 			slots.process_event(event);
 		}
-		let overused = slots.filter_overused(&config.rules);
+		let now = Utc::now();
+		let overused = slots.filter_overused(&config.rules, now);
 		if !overused.is_empty() {
 			std::process::Command::new("killall").arg("firefox").status().unwrap();
 		}
