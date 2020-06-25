@@ -1,4 +1,4 @@
-use crate::config::Config;
+use crate::config::{Config, Rule};
 use crate::slots::Slots;
 use chrono::{DateTime, Utc};
 use std::time::Duration;
@@ -19,16 +19,23 @@ pub struct Event {
 	is_active: bool,
 }
 
+impl Activity {
+	fn matches(&self, rule: &Rule) -> bool {
+		let Activity::Website { domain } = self;
+		rule.domains.contains(domain)
+	}
+}
+
 fn main() {
 	let config = Config::load();
 	sources::webext::proxy::check_and_run(config.sources.webext.port);
 	let mut slots = Slots::new();
 	let mut conn = sources::webext::WebExt::new(config.sources.webext.port);
 	loop {
-		let event = conn.next_timeout(Duration::from_secs(1));
-		if let Some(event) = event {
-			println!("{:?}", event);
+		if let Some(event) = conn.next_timeout(Duration::from_secs(4)) {
 			slots.process_event(event);
 		}
+		let overused = slots.filter_overused(&config.rules);
+		println!("{:?}", overused);
 	}
 }

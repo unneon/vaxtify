@@ -1,7 +1,7 @@
 mod serde_time;
 
+use chrono::Duration;
 use serde::Deserialize;
-use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {

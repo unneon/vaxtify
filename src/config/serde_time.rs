@@ -1,7 +1,7 @@
+use chrono::Duration;
 use serde::de::Visitor;
 use serde::Deserializer;
 use std::fmt;
-use std::time::Duration;
 
 struct TimeVisitor {
 	unit: Duration,
@@ -16,16 +16,16 @@ impl Visitor<'_> for TimeVisitor {
 	}
 
 	fn visit_i64<E: std::error::Error>(self, v: i64) -> Result<Self::Value, E> {
-		Ok(self.unit * v as u32)
+		Ok(self.unit * v as i32)
 	}
 }
 
 pub fn minutes<'de, D: Deserializer<'de>>(d: D) -> Result<Duration, D::Error> {
-	generic(d, Duration::from_secs(60), "minutes")
+	generic(d, Duration::minutes(1), "minutes")
 }
 
 pub fn hours<'de, D: Deserializer<'de>>(d: D) -> Result<Duration, D::Error> {
-	generic(d, Duration::from_secs(60 * 60), "hours")
+	generic(d, Duration::hours(1), "hours")
 }
 
 fn generic<'de, D: Deserializer<'de>>(d: D, unit: Duration, name: &'static str) -> Result<Duration, D::Error> {
