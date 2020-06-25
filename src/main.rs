@@ -12,7 +12,7 @@ pub enum Activity {
 	Website { domain: String },
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Event {
 	activity: Activity,
 	timestamp: DateTime<Utc>,

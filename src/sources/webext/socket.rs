@@ -59,7 +59,7 @@ fn protocol(raw: &[u8]) -> Message {
 }
 
 #[test]
-fn test_parse() {
+fn parsing() {
 	use chrono::DateTime;
 	let c_str = "{\"kind\":\"Created\",\"timestamp\":\"2020-06-11T22:07:54.925Z\",\"tab\":20}";
 	let r_str = "{\"kind\":\"Removed\",\"timestamp\":\"2020-06-11T22:07:55.885Z\",\"tab\":20}";

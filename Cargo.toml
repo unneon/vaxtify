@@ -7,7 +7,6 @@ description = "Integrated distraction manager to regain control of your computer
 repository = "https://github.com/pustaczek/distraction-oni"
 license = "MPL-2.0"
 keywords = ["productivity"]
-default-run = "distraction-oni"
 
 [dependencies]
 chrono = "0.4"

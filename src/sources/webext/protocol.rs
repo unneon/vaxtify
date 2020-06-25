@@ -17,7 +17,7 @@ pub fn write(data: &[u8], mut output: impl Write) -> Result<(), io::Error> {
 }
 
 #[test]
-fn test_read() {
+fn reading() {
 	let mut data: &[_] = &[2, 0, 0, 0, 1, 2, 3, 4];
 	let message = read(&mut data).unwrap();
 	assert_eq!(message, [1, 2]);
@@ -25,7 +25,7 @@ fn test_read() {
 }
 
 #[test]
-fn test_write() {
+fn writing() {
 	let mut data = Vec::new();
 	write(&[1, 2], &mut data).unwrap();
 	assert_eq!(data, [2, 0, 0, 0, 1, 2]);
