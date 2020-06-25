@@ -36,12 +36,11 @@ impl Slots {
 		}
 	}
 
-	pub fn filter_overused(&self, rules: &[Rule]) -> Vec<Activity> {
+	pub fn filter_overused(&self, rules: &[Rule]) -> Vec<&Activity> {
 		self.slots
 			.iter()
 			.filter(|(activity, slot)| self.is_overused(rules, activity, slot))
-			.map(|(activity, _)| activity)
-			.cloned()
+			.map(|entry| entry.0)
 			.collect()
 	}
 
@@ -108,7 +107,7 @@ fn basic_overusage() {
 	slots.process_event(Event { timestamp: now - Duration::minutes(8), activity: website("c"), is_active: true });
 	slots.process_event(Event { timestamp: now - Duration::minutes(2), activity: website("c"), is_active: false });
 	slots.process_event(Event { timestamp: now - Duration::minutes(6), activity: website("d"), is_active: true });
-	assert_eq!(slots.filter_overused(&rules), &[website("b")]);
+	assert_eq!(slots.filter_overused(&rules), &[&website("b")]);
 }
 
 #[test]

@@ -32,10 +32,12 @@ fn main() {
 	let mut slots = Slots::new();
 	let mut conn = sources::webext::WebExt::new(config.sources.webext.port);
 	loop {
-		if let Some(event) = conn.next_timeout(Duration::from_secs(4)) {
+		if let Some(event) = conn.next_timeout(Duration::from_secs(10)) {
 			slots.process_event(event);
 		}
 		let overused = slots.filter_overused(&config.rules);
-		println!("{:?}", overused);
+		if !overused.is_empty() {
+			std::process::Command::new("killall").arg("firefox").status().unwrap();
+		}
 	}
 }
