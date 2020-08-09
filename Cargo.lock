@@ -49,6 +49,7 @@ checksum = "80094f509cf8b5ae86a4966a39b3ff66cd7e2a3e594accec3743ff3fabeab5b2"
 dependencies = [
  "num-integer",
  "num-traits",
+ "serde",
  "time",
 ]
 
@@ -113,10 +114,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "json"
-version = "0.12.4"
+name = "itoa"
+version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "078e285eafdfb6c4b434e0d31e8cfcb5115b651496faca5749b88fafd4f23bfd"
+checksum = "dc6f3ad7b9d11a0c00842ff8de1b60ee58661048eb8049ed33c73594f359d7e6"
 
 [[package]]
 name = "lazy_static"
@@ -209,6 +210,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ryu"
+version = "1.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
+
+[[package]]
 name = "serde"
 version = "1.0.114"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -226,6 +233,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "164eacbdb13512ec2745fb09d51fd5b22b0d65ed294a1dcf7285a360c80a675c"
+dependencies = [
+ "itoa",
+ "ryu",
+ "serde",
 ]
 
 [[package]]
@@ -258,8 +276,7 @@ checksum = "53953d2d3a5ad81d9f844a32f14ebb121f50b650cd59d0ee2a07cf13c617efed"
 [[package]]
 name = "toml"
 version = "0.5.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ffc92d160b1eef40665be3a05630d003936a3bc7da7421277846c2613e92c71a"
+source = "git+https://github.com/pustaczek/toml-rs#5b3b94d2271dc7be4cf873ebffe84482a079bfe3"
 dependencies = [
  "serde",
 ]
@@ -301,12 +318,12 @@ dependencies = [
 
 [[package]]
 name = "vaxtify"
-version = "0.0.0"
+version = "0.0.1"
 dependencies = [
  "chrono",
  "dirs",
- "json",
  "serde",
+ "serde_json",
  "toml",
  "url",
 ]

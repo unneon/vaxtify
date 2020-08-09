@@ -1,31 +1,58 @@
-mod serde_time;
+mod serde_duration;
 
-use chrono::Duration;
+use crate::activity::Activity;
 use serde::Deserialize;
+use std::collections::HashMap;
+use std::time::Duration;
+
+#[derive(Debug, Deserialize)]
+pub struct Category {
+	#[serde(default)]
+	domains: Vec<String>,
+	#[serde(default)]
+	subreddits: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub enum Limit {
+	#[serde(rename = "individual")]
+	Individual(#[serde(with = "serde_duration")] Duration),
+}
+
+#[derive(Debug, Deserialize)]
+pub enum Enforce {
+	#[serde(rename = "stepwise")]
+	Stepwise {
+		#[serde(with = "serde_duration")]
+		delay: Duration,
+	},
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Rule {
+	pub allowed: Limit,
+	pub categories: Vec<String>,
+	pub enforce: Enforce,
+}
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
-	pub sources: Sources,
+	pub category: HashMap<String, Category>,
 	pub rules: Vec<Rule>,
 }
 
-#[derive(Debug, Deserialize)]
-pub struct Sources {
-	pub webext: SourceWebext,
+impl Category {
+	pub fn all_activities(&self) -> Vec<Activity> {
+		let domains = self.domains.iter().cloned().map(|domain| Activity::Internet { domain });
+		let subreddits = self.subreddits.iter().cloned().map(|subreddit| Activity::Reddit { subreddit });
+		domains.chain(subreddits).collect()
+	}
 }
 
-#[derive(Debug, Deserialize)]
-pub struct SourceWebext {
-	pub port: u16,
-}
-
-#[derive(Debug, Deserialize, PartialEq)]
-pub struct Rule {
-	#[serde(deserialize_with = "serde_time::minutes")]
-	pub allowed_minutes: Duration,
-	#[serde(deserialize_with = "serde_time::hours")]
-	pub cooldown_hours: Duration,
-	pub domains: Vec<String>,
+impl Rule {
+	pub fn all_activities(&self, config: &Config) -> Vec<Activity> {
+		self.categories.iter().flat_map(|category| config.category[category].all_activities()).collect()
+	}
 }
 
 impl Config {

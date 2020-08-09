@@ -1,44 +1,37 @@
-use crate::config::{Config, Rule};
-use crate::slots::Slots;
-use chrono::{DateTime, Utc};
+mod activity;
+mod config;
+mod event;
+mod ipc;
+mod timekeeper;
+mod timeline;
+mod webext;
+
+use crate::config::Config;
+use crate::timekeeper::Timekeeper;
+use crate::timeline::Timeline;
+use crate::webext::WebExt;
 use std::time::Duration;
 
-mod config;
-mod slots;
-mod sources;
-
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Activity {
-	Website { domain: String },
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Event {
-	activity: Activity,
-	timestamp: DateTime<Utc>,
-	is_active: bool,
-}
-
-impl Activity {
-	fn matches(&self, rule: &Rule) -> bool {
-		let Activity::Website { domain } = self;
-		rule.domains.contains(domain)
-	}
-}
+const IDLE_TIMEOUT: Duration = Duration::from_millis(200);
 
 fn main() {
+	webext::proxy::check_and_run();
 	let config = Config::load();
-	sources::webext::proxy::check_and_run(config.sources.webext.port);
-	let mut slots = Slots::new();
-	let mut conn = sources::webext::WebExt::new(config.sources.webext.port);
+	println!("{:#?}", config);
+	let mut timekeeper = Timekeeper::new(&config);
+	let mut timeline = Timeline::new();
+	let mut webext = WebExt::new();
 	loop {
-		if let Some(event) = conn.next_timeout(Duration::from_secs(10)) {
-			slots.process_event(event);
+		if let Some(event) = webext.next() {
+			println!("{:?}", event);
+			timeline.add_event(event);
+		} else {
+			std::thread::sleep(IDLE_TIMEOUT);
 		}
-		let now = Utc::now();
-		let overused = slots.filter_overused(&config.rules, now);
-		if !overused.is_empty() {
-			std::process::Command::new("killall").arg("firefox").status().unwrap();
+		for category in timekeeper.update_enforcements(&timeline) {
+			for activity in config.category[&category].all_activities() {
+				webext.close_one(activity);
+			}
 		}
 	}
 }

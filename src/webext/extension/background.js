@@ -45,3 +45,9 @@ browser.tabs.query({}).then(tabs => {
             on_activated(tab.id);
     }
 });
+
+port.onMessage.addListener(command => {
+    if (command.kind === "Close") {
+        browser.tabs.remove(command.tab);
+    }
+});
