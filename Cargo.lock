@@ -91,18 +91,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "distraction-oni"
-version = "0.0.1"
-dependencies = [
- "chrono",
- "dirs",
- "json",
- "serde",
- "toml",
- "url",
-]
-
-[[package]]
 name = "getrandom"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -309,6 +297,18 @@ dependencies = [
  "idna",
  "matches",
  "percent-encoding",
+]
+
+[[package]]
+name = "vaxtify"
+version = "0.0.0"
+dependencies = [
+ "chrono",
+ "dirs",
+ "json",
+ "serde",
+ "toml",
+ "url",
 ]
 
 [[package]]

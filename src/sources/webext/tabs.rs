@@ -78,10 +78,7 @@ fn multiple_tabs() {
 		send(MessageKind::Updated { tab: 0, url: "https://github.com/pustaczek".to_owned() }),
 		&[Event { timestamp, activity: Activity::Website { domain: "github.com".to_owned() }, is_active: true }]
 	);
-	assert_eq!(
-		send(MessageKind::Updated { tab: 1, url: "https://github.com/pustaczek/distraction-oni".to_owned() }),
-		&[]
-	);
+	assert_eq!(send(MessageKind::Updated { tab: 1, url: "https://github.com/pustaczek/vaxtify".to_owned() }), &[]);
 	assert_eq!(send(MessageKind::Removed { tab: 0 }), &[]);
 	assert_eq!(
 		send(MessageKind::Removed { tab: 1 }),

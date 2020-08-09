@@ -4,7 +4,7 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 pub fn check_and_run(port: u16) {
-	if std::env::args().nth(2).as_deref() == Some("distraction_oni@pustaczek.dev") {
+	if std::env::args().nth(2).as_deref() == Some("vaxtify@pustaczek.dev") {
 		run(port);
 	}
 }

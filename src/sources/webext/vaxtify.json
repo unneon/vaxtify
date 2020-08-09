@@ -1,9 +1,9 @@
 {
-  "name": "distraction_oni",
+  "name": "vaxtify",
   "description": "Integrated productivity manager to regain control of your computer and Internet use",
-  "path": "/home/matcegla/Projects/distraction-oni/target/debug/distraction-oni",
+  "path": "/home/matcegla/Projects/vaxtify/target/debug/vaxtify",
   "type": "stdio",
   "allowed_extensions": [
-    "distraction_oni@pustaczek.dev"
+    "vaxtify@pustaczek.dev"
   ]
 }

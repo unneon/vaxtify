@@ -30,7 +30,7 @@ pub struct Rule {
 
 impl Config {
 	pub fn load() -> Config {
-		let path = dirs::config_dir().unwrap().join("distraction-oni.toml");
+		let path = dirs::config_dir().unwrap().join("vaxtify.toml");
 		let file = std::fs::read(path).unwrap();
 		toml::from_slice(&file).unwrap()
 	}

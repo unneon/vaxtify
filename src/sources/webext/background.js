@@ -1,4 +1,4 @@
-let port = browser.runtime.connectNative("distraction_oni");
+let port = browser.runtime.connectNative("vaxtify");
 
 function on_created(tabId) {
     port.postMessage({
