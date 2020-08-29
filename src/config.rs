@@ -13,13 +13,13 @@ pub struct Category {
 	subreddits: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Eq, PartialEq)]
 pub enum Limit {
 	#[serde(rename = "individual")]
 	Individual(#[serde(with = "serde_duration")] Duration),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Eq, PartialEq)]
 pub enum Enforce {
 	#[serde(rename = "stepwise")]
 	Stepwise {
@@ -59,6 +59,32 @@ impl Config {
 	pub fn load() -> Config {
 		let path = dirs::config_dir().unwrap().join("vaxtify.toml");
 		let file = std::fs::read(path).unwrap();
+		Config::parse(&file)
+	}
+
+	fn parse(file: &[u8]) -> Config {
 		toml::from_slice(&file).unwrap()
 	}
+}
+
+#[test]
+fn example() {
+	let text = r#"
+[category.example]
+domains = ["example.com", "example.org"]
+subreddits = ["all"]
+
+[[rules]]
+allowed.individual.minutes = 4
+categories = ["example"]
+enforce.stepwise.delay.seconds = 1
+"#;
+	let config = Config::parse(text.as_bytes());
+	assert_eq!(config.category.len(), 1);
+	assert_eq!(config.category["example"].domains, ["example.com", "example.org"]);
+	assert_eq!(config.category["example"].subreddits, ["all"]);
+	assert_eq!(config.rules.len(), 1);
+	assert_eq!(config.rules[0].allowed, Limit::Individual(Duration::from_secs(240)));
+	assert_eq!(config.rules[0].categories, ["example"]);
+	assert_eq!(config.rules[0].enforce, Enforce::Stepwise { delay: Duration::from_secs(1) });
 }
