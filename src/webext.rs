@@ -16,7 +16,7 @@ use tabs::Tabs;
 
 pub struct WebExt {
 	tabs: Tabs,
-	buffer: VecDeque<crate::event::Event>,
+	buffer: VecDeque<Event>,
 	listener: TcpListener,
 	socket: Socket,
 	protocol_state: protocol::ReadState,

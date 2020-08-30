@@ -18,16 +18,20 @@ impl Interval {
 		}
 		merged
 	}
+
+	#[cfg(test)]
+	pub fn example(since: u32, until: u32) -> Interval {
+		use crate::util::example_time;
+		let since = example_time(since);
+		let until = example_time(until);
+		Interval { since, until }
+	}
 }
 
 #[cfg(test)]
-fn test_merge(input: &[(i64, i64)], output: &[(i64, i64)]) {
-	let now = Utc::now();
-	let make_time = |a| now + chrono::Duration::seconds(a);
-	let make_interval = |a, b| Interval { since: make_time(a), until: make_time(b) };
-	let make_intervals = |a: &[(i64, i64)]| a.iter().map(|(a, b)| make_interval(*a, *b)).collect::<Vec<_>>();
-	let input = make_intervals(input);
-	let output = make_intervals(output);
+fn test_merge(input: &[(u32, u32)], output: &[(u32, u32)]) {
+	let input = input.iter().map(|(a, b)| Interval::example(*a, *b)).collect();
+	let output: Vec<_> = output.iter().map(|(a, b)| Interval::example(*a, *b)).collect();
 	assert_eq!(Interval::merge(input), output);
 }
 

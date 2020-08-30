@@ -55,32 +55,27 @@ impl<'a> State<'a> {
 
 #[test]
 fn no_call_twice() {
-	use crate::activity::Activity;
 	use crate::event::Event;
+	use crate::util::example_time;
 
-	let now = Utc::now();
 	let config = r#"
 [category.example]
 domains = ["example.com"]
 
 [[rules]]
-allowed.individual.seconds = 1
+allowed.individual.seconds = 5
 categories = ["example"]
 enforce.close = {}
 "#;
 	let config = Config::parse(config);
 
 	let mut timeline = Timeline::new();
-	timeline.add_event(Event {
-		activity: Activity::Internet { domain: "example.com".to_owned() },
-		timestamp: now,
-		is_active: true,
-	});
+	timeline.add_event(Event::example("example.com", 0, true));
 
 	let mut timekeeper = Timekeeper::new(&config);
-	let enforces1 = timekeeper.update_enforcements(&timeline, now + chrono::Duration::seconds(10));
-	let enforces2 = timekeeper.update_enforcements(&timeline, now + chrono::Duration::seconds(15));
-	let enforces3 = timekeeper.update_enforcements(&timeline, now + chrono::Duration::seconds(20));
+	let enforces1 = timekeeper.update_enforcements(&timeline, example_time(10));
+	let enforces2 = timekeeper.update_enforcements(&timeline, example_time(15));
+	let enforces3 = timekeeper.update_enforcements(&timeline, example_time(20));
 	assert_eq!(enforces1, [("example".to_owned(), Enforce::Close)]);
 	assert_eq!(enforces2, []);
 	assert_eq!(enforces3, []);

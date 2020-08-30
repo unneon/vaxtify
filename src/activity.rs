@@ -10,6 +10,11 @@ impl Activity {
 	pub fn from_url(url: &Url) -> Option<Activity> {
 		reddit_from_url(url).or_else(|| internet_from_url(url))
 	}
+
+	#[cfg(test)]
+	pub fn example(name: &str) -> Activity {
+		Activity::Internet { domain: name.to_owned() }
+	}
 }
 
 fn reddit_from_url(url: &Url) -> Option<Activity> {

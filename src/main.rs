@@ -4,6 +4,7 @@ mod event;
 mod ipc;
 mod timekeeper;
 mod timeline;
+mod util;
 mod webext;
 
 use crate::config::{Config, Enforce};

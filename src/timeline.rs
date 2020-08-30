@@ -69,32 +69,17 @@ impl Timeline {
 }
 
 #[cfg(test)]
-fn make_activity(name: &str) -> Activity {
-	Activity::Internet { domain: name.to_owned() }
-}
-
-#[cfg(test)]
-fn make_time(time: u32) -> DateTime<Utc> {
-	use chrono::TimeZone;
-	Utc.ymd(2020, 1, 1).and_hms(0, 0, time)
-}
-
-#[cfg(test)]
-fn make_event(name: &str, time: u32, is_active: bool) -> Event {
-	Event { activity: make_activity(name), timestamp: make_time(time), is_active }
-}
-
-#[cfg(test)]
 fn check_time(names: &[&str], time: u32, timeline: &Timeline) -> u64 {
-	let activities: Vec<_> = names.iter().copied().map(make_activity).collect();
-	timeline.compute_individual_time(&activities, make_time(time)).as_secs()
+	use crate::util::example_time;
+	let activities: Vec<_> = names.iter().copied().map(Activity::example).collect();
+	timeline.compute_individual_time(&activities, example_time(time)).as_secs()
 }
 
 #[test]
 fn double_active_and_inactive() {
 	let mut timeline = Timeline::new();
-	timeline.add_event(make_event("a", 0, true));
-	timeline.add_event(make_event("b", 1, true));
-	timeline.add_event(make_event("a", 10, false));
+	timeline.add_event(Event::example("a", 0, true));
+	timeline.add_event(Event::example("b", 1, true));
+	timeline.add_event(Event::example("a", 10, false));
 	assert_eq!(check_time(&["a", "b"], 15, &timeline), 15);
 }
