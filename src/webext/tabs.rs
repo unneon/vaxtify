@@ -3,7 +3,6 @@ use crate::event::Event;
 use crate::webext::{WebEvent, WebEventKind};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
-use url::Url;
 
 pub struct Tabs {
 	tabs: HashMap<i64, Activity>,
@@ -26,7 +25,7 @@ impl Tabs {
 				}
 			}
 			WebEventKind::Updated { tab, url } => {
-				let new_activity = url_to_activity(&url.parse().unwrap());
+				let new_activity = Activity::from_url(&url.parse().unwrap());
 				let old_activity = if let Some(new_activity) = new_activity {
 					events.extend(self.site_increment(new_activity.clone(), web_event.timestamp));
 					self.tabs.insert(tab, new_activity)
@@ -72,25 +71,6 @@ impl Tabs {
 	pub fn find_by_activity(&self, activity: Activity) -> Option<i64> {
 		self.tabs.iter().filter(|(_, haystack)| **haystack == activity).map(|(tab, _)| *tab).next()
 	}
-}
-
-fn url_to_activity(url: &Url) -> Option<Activity> {
-	url_to_reddit(url).or_else(|| url_to_internet(url))
-}
-
-fn url_to_reddit(url: &Url) -> Option<Activity> {
-	if url.domain()? != "www.reddit.com" {
-		return None;
-	}
-	let path_segments = url.path_segments()?.collect::<Vec<_>>();
-	if path_segments.len() < 2 || path_segments[0] != "r" {
-		return None;
-	}
-	Some(Activity::Reddit { subreddit: path_segments[1].to_owned() })
-}
-
-fn url_to_internet(url: &Url) -> Option<Activity> {
-	Some(Activity::Internet { domain: url.domain()?.to_owned() })
 }
 
 #[test]
