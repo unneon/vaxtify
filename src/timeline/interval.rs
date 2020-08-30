@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use std::time::Duration;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Interval {
@@ -8,10 +7,6 @@ pub struct Interval {
 }
 
 impl Interval {
-	pub fn duration(&self) -> Duration {
-		(self.until - self.since).to_std().unwrap()
-	}
-
 	pub fn merge(mut intervals: Vec<Interval>) -> Vec<Interval> {
 		intervals.sort_by_key(|interval| interval.since);
 		let mut merged = Vec::<Interval>::new();

@@ -12,12 +12,11 @@ use crate::timeline::Timeline;
 use crate::webext::WebExt;
 use std::time::Duration;
 
-const IDLE_TIMEOUT: Duration = Duration::from_millis(200);
+const IDLE_TIMEOUT: Duration = Duration::from_millis(1000);
 
 fn main() {
 	webext::proxy::check_and_run();
 	let config = Config::load();
-	println!("{:#?}", config);
 	let mut timekeeper = Timekeeper::new(&config);
 	let mut timeline = Timeline::new();
 	let mut webext = WebExt::new();

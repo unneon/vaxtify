@@ -20,14 +20,19 @@ impl<'a> Timekeeper<'a> {
 
 	/// Computes a set of categories that should be enforced now.
 	pub fn update_enforcements(&mut self, timeline: &Timeline) -> Vec<String> {
+		let now = Utc::now();
 		let mut categories = Vec::new();
 		for state in &mut self.states {
 			let activities = state.rule.all_activities(self.config);
 			let Limit::Individual(limit) = state.rule.allowed;
-			let is_violation = timeline.compute_individual_time(&activities) > limit;
-			if is_violation && delay_passed(state) {
+			let time = timeline.compute_individual_time(&activities, now);
+			if time.as_secs() != 0 {
+				let used_ratio = time.as_secs_f64() / limit.as_secs_f64();
+				println!("{:>6.2}% of rule {:?}", used_ratio * 100., state.rule.categories);
+			}
+			if time > limit && delay_passed(state, now) {
 				categories.extend(state.rule.categories.iter().cloned());
-				state.last_enforced = Some(Utc::now());
+				state.last_enforced = Some(now);
 			} else {
 				state.last_enforced = None;
 			}
@@ -38,10 +43,10 @@ impl<'a> Timekeeper<'a> {
 	}
 }
 
-fn delay_passed(state: &State) -> bool {
+fn delay_passed(state: &State, now: DateTime<Utc>) -> bool {
 	let Enforce::Stepwise { delay } = state.rule.enforce;
 	match state.last_enforced {
-		Some(last_enforced) => (Utc::now() - last_enforced).to_std().unwrap() >= delay,
+		Some(last_enforced) => (now - last_enforced).to_std().unwrap() >= delay,
 		None => true,
 	}
 }
