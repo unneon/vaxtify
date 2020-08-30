@@ -102,12 +102,12 @@ impl WebExt {
 		}
 	}
 
-	pub fn close_one(&mut self, activity: Activity) {
-		if let Some(tab) = self.tabs.find_by_activity(activity) {
+	pub fn close_all(&mut self, activities: &[Activity]) {
+		for tab in self.tabs.filter_by_activities(activities) {
 			let data = serialize_web_command(WebCommand::Close { tab });
 			let _ = protocol::write(&data, &mut self.socket);
-			let _ = self.socket.flush();
 		}
+		let _ = self.socket.flush();
 	}
 }
 

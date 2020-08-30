@@ -68,8 +68,8 @@ impl Tabs {
 		}
 	}
 
-	pub fn find_by_activity(&self, activity: Activity) -> Option<i64> {
-		self.tabs.iter().filter(|(_, haystack)| **haystack == activity).map(|(tab, _)| *tab).next()
+	pub fn filter_by_activities(&self, activities: &[Activity]) -> Vec<i64> {
+		self.tabs.iter().filter(|(_, activity)| activities.contains(activity)).map(|(tab, _)| *tab).collect()
 	}
 }
 
