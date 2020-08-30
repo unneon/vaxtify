@@ -22,7 +22,6 @@ fn main() {
 	let mut webext = WebExt::new();
 	loop {
 		if let Some(event) = webext.next() {
-			println!("{:?}", event);
 			timeline.add_event(event);
 		} else {
 			std::thread::sleep(IDLE_TIMEOUT);

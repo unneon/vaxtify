@@ -26,10 +26,6 @@ impl<'a> Timekeeper<'a> {
 			let activities = state.rule.all_activities(self.config);
 			let Limit::Individual(limit) = state.rule.allowed;
 			let time = timeline.compute_individual_time(&activities, now);
-			if time.as_secs() != 0 {
-				let used_ratio = time.as_secs_f64() / limit.as_secs_f64();
-				println!("{:>6.2}% of rule {:?}", used_ratio * 100., state.rule.categories);
-			}
 			if time > limit && delay_passed(state, now) {
 				categories.extend(state.rule.categories.iter().cloned());
 				state.last_enforced = Some(now);

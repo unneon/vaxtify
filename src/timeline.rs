@@ -41,7 +41,6 @@ impl Timeline {
 
 	pub fn compute_individual_time(&self, activities: &[Activity], now: DateTime<Utc>) -> Duration {
 		let intervals = self.finished_intervals(activities);
-		dbg!(&intervals);
 		match (intervals.last(), self.earliest_active_since(activities)) {
 			(Some(last), Some(active_since)) if active_since <= last.until => (now - last.since).to_std().unwrap(),
 			(_, Some(active_since)) => (now - active_since).to_std().unwrap(),
