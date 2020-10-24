@@ -1,6 +1,6 @@
 use crate::config::{Config, Enforce, Limit, Rule};
 use crate::timeline::Timeline;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local, Utc};
 
 struct Fuse {
 	limit: f64,
@@ -28,18 +28,31 @@ impl<'a> Timekeeper<'a> {
 	pub fn update_enforcements(&mut self, timeline: &Timeline, now: DateTime<Utc>) -> Vec<(String, Enforce)> {
 		let mut enforces = Vec::new();
 		for state in &mut self.states {
-			let Limit::Individual(limit) = state.rule.allowed;
-			let activities = state.rule.all_activities(self.config);
-			let time = timeline.compute_individual_time(&activities, now);
-			let time_ratio = time.as_secs_f64() / limit.as_secs_f64();
-			for fuse in &mut state.fuses {
-				if !fuse.triggered && time_ratio >= fuse.limit {
-					for category in &state.rule.categories {
-						enforces.push((category.clone(), fuse.enforce));
+			match &state.rule.allowed {
+				Limit::Individual(limit) => {
+					let activities = state.rule.all_activities(self.config);
+					let time = timeline.compute_individual_time(&activities, now);
+					let time_ratio = time.as_secs_f64() / limit.as_secs_f64();
+					for fuse in &mut state.fuses {
+						if !fuse.triggered && time_ratio >= fuse.limit {
+							for category in &state.rule.categories {
+								enforces.push((category.clone(), fuse.enforce));
+							}
+							fuse.triggered = true;
+						} else if fuse.triggered && time_ratio < fuse.limit {
+							fuse.triggered = false;
+						}
 					}
-					fuse.triggered = true;
-				} else if fuse.triggered && time_ratio < fuse.limit {
-					fuse.triggered = false;
+				}
+				Limit::During { since, until } => {
+					let now = now.with_timezone(&Local).time();
+					let is_allowed =
+						if since <= until { now >= *since && now <= *until } else { now >= *since || now <= *until };
+					if !is_allowed {
+						for category in &state.rule.categories {
+							enforces.push((category.clone(), state.rule.enforce));
+						}
+					}
 				}
 			}
 		}

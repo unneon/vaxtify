@@ -1,6 +1,8 @@
 mod serde_duration;
+mod serde_time;
 
 use crate::activity::Activity;
+use chrono::NaiveTime;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -14,9 +16,23 @@ pub struct Category {
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq)]
+pub struct Hour {
+	hour: u8,
+	#[serde(default)]
+	minute: u8,
+}
+
+#[derive(Debug, Deserialize, Eq, PartialEq)]
 pub enum Limit {
 	#[serde(rename = "individual")]
 	Individual(#[serde(with = "serde_duration")] Duration),
+	#[serde(rename = "during")]
+	During {
+		#[serde(with = "serde_time")]
+		since: NaiveTime,
+		#[serde(with = "serde_time")]
+		until: NaiveTime,
+	},
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
