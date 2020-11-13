@@ -79,14 +79,14 @@ fn multiple_tabs() {
 	let mut tabs = Tabs::new();
 	let mut send = |kind| tabs.process_web_event(WebEvent { timestamp, kind });
 	assert_eq!(
-		send(WebEventKind::Updated { tab: 0, url: "https://github.com/pustaczek".to_owned() }),
-		&[Event { timestamp, activity: Activity::Internet { domain: "github.com".to_owned() }, is_active: true }]
+		send(WebEventKind::Updated { tab: 0, url: "https://example.com".to_owned() }),
+		&[Event { timestamp, activity: Activity::Internet { domain: "example.com".to_owned() }, is_active: true }]
 	);
-	assert_eq!(send(WebEventKind::Updated { tab: 1, url: "https://github.com/pustaczek/vaxtify".to_owned() }), &[]);
+	assert_eq!(send(WebEventKind::Updated { tab: 1, url: "https://example.com/robots.txt".to_owned() }), &[]);
 	assert_eq!(send(WebEventKind::Removed { tab: 0 }), &[]);
 	assert_eq!(
 		send(WebEventKind::Removed { tab: 1 }),
-		&[Event { timestamp, activity: Activity::Internet { domain: "github.com".to_owned() }, is_active: false }]
+		&[Event { timestamp, activity: Activity::Internet { domain: "example.com".to_owned() }, is_active: false }]
 	);
 }
 
@@ -96,11 +96,11 @@ fn clean_browser_shutdown() {
 	let mut tabs = Tabs::new();
 	let mut send = |kind| tabs.process_web_event(WebEvent { timestamp, kind });
 	assert_eq!(
-		send(WebEventKind::Updated { tab: 0, url: "https://github.com".to_owned() }),
-		&[Event { timestamp, activity: Activity::Internet { domain: "github.com".to_owned() }, is_active: true }]
+		send(WebEventKind::Updated { tab: 0, url: "https://example.com".to_owned() }),
+		&[Event { timestamp, activity: Activity::Internet { domain: "example.com".to_owned() }, is_active: true }]
 	);
 	assert_eq!(
 		send(WebEventKind::BrowserShutdown),
-		&[Event { timestamp, activity: Activity::Internet { domain: "github.com".to_owned() }, is_active: false }]
+		&[Event { timestamp, activity: Activity::Internet { domain: "example.com".to_owned() }, is_active: false }]
 	);
 }

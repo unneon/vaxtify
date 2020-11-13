@@ -13,6 +13,8 @@ pub struct Category {
 	domains: Vec<String>,
 	#[serde(default)]
 	subreddits: Vec<String>,
+	#[serde(default)]
+	github: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Eq, PartialEq)]
@@ -58,7 +60,8 @@ impl Category {
 	pub fn all_activities(&self) -> Vec<Activity> {
 		let domains = self.domains.iter().cloned().map(|domain| Activity::Internet { domain });
 		let subreddits = self.subreddits.iter().cloned().map(|subreddit| Activity::Reddit { subreddit });
-		domains.chain(subreddits).collect()
+		let github = self.github.iter().cloned().map(|repo| Activity::Github { repo });
+		domains.chain(subreddits).chain(github).collect()
 	}
 }
 
@@ -86,6 +89,7 @@ fn example() {
 [category.example]
 domains = ["example.com", "example.org"]
 subreddits = ["all"]
+github = ["pustaczek/icie"]
 
 [[rules]]
 allowed.individual.minutes = 4
@@ -96,6 +100,7 @@ enforce.close = {}
 	assert_eq!(config.category.len(), 1);
 	assert_eq!(config.category["example"].domains, ["example.com", "example.org"]);
 	assert_eq!(config.category["example"].subreddits, ["all"]);
+	assert_eq!(config.category["example"].github, ["pustaczek/icie"]);
 	assert_eq!(config.rules.len(), 1);
 	assert_eq!(config.rules[0].allowed, Limit::Individual(Duration::from_secs(240)));
 	assert_eq!(config.rules[0].categories, ["example"]);
