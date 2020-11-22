@@ -35,6 +35,8 @@ pub enum Limit {
 		#[serde(with = "serde_time")]
 		until: NaiveTime,
 	},
+	#[serde(rename = "never")]
+	Never,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]

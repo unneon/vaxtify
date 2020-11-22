@@ -54,6 +54,11 @@ impl<'a> Timekeeper<'a> {
 						}
 					}
 				}
+				Limit::Never => {
+					for category in &state.rule.categories {
+						enforces.push((category.clone(), state.rule.enforce));
+					}
+				}
 			}
 		}
 		enforces
