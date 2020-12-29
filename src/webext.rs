@@ -3,6 +3,7 @@ pub mod proxy;
 mod tabs;
 
 use crate::activity::Activity;
+use crate::config::Config;
 use crate::event::Event;
 use crate::ipc::Socket;
 use crate::webext::protocol::ReadError;
@@ -14,8 +15,8 @@ use std::io::Write;
 use std::net::TcpListener;
 use tabs::Tabs;
 
-pub struct WebExt {
-	tabs: Tabs,
+pub struct WebExt<'a> {
+	tabs: Tabs<'a>,
 	buffer: VecDeque<Event>,
 	listener: TcpListener,
 	socket: Socket,
@@ -48,10 +49,10 @@ enum WebCommand {
 
 const PORT: u16 = 7487;
 
-impl WebExt {
-	pub fn new() -> WebExt {
+impl WebExt<'_> {
+	pub fn new(config: &Config) -> WebExt {
 		WebExt {
-			tabs: Tabs::new(),
+			tabs: Tabs::new(config),
 			buffer: VecDeque::new(),
 			listener: TcpListener::bind(("localhost", PORT)).unwrap(),
 			socket: Socket::Offline,

@@ -21,7 +21,7 @@ fn main() {
 	let config = Config::load();
 	let mut timekeeper = Timekeeper::new(&config);
 	let mut timeline = Timeline::new();
-	let mut webext = WebExt::new();
+	let mut webext = WebExt::new(&config);
 	loop {
 		if let Some(event) = webext.next() {
 			timeline.add_event(event);

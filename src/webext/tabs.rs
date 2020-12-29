@@ -1,17 +1,19 @@
 use crate::activity::Activity;
+use crate::config::Config;
 use crate::event::Event;
 use crate::webext::{WebEvent, WebEventKind};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 
-pub struct Tabs {
+pub struct Tabs<'a> {
 	tabs: HashMap<i64, Activity>,
 	sites: HashMap<Activity, i64>,
+	config: &'a Config,
 }
 
-impl Tabs {
-	pub fn new() -> Self {
-		Tabs { tabs: HashMap::new(), sites: HashMap::new() }
+impl<'a> Tabs<'a> {
+	pub fn new(config: &'a Config) -> Self {
+		Tabs { tabs: HashMap::new(), sites: HashMap::new(), config }
 	}
 
 	pub(super) fn process_web_event(&mut self, web_event: WebEvent) -> Vec<Event> {
@@ -25,7 +27,7 @@ impl Tabs {
 				}
 			}
 			WebEventKind::Updated { tab, url } => {
-				let new_activity = Activity::from_url(&url.parse().unwrap());
+				let new_activity = Activity::from_url(&url.parse().unwrap(), self.config);
 				let old_activity = if let Some(new_activity) = new_activity {
 					events.extend(self.site_increment(new_activity.clone(), web_event.timestamp));
 					self.tabs.insert(tab, new_activity)
@@ -75,8 +77,9 @@ impl Tabs {
 
 #[test]
 fn multiple_tabs() {
+	let config = Config::default();
 	let timestamp = Utc::now();
-	let mut tabs = Tabs::new();
+	let mut tabs = Tabs::new(&config);
 	let mut send = |kind| tabs.process_web_event(WebEvent { timestamp, kind });
 	assert_eq!(
 		send(WebEventKind::Updated { tab: 0, url: "https://example.com".to_owned() }),
@@ -92,8 +95,9 @@ fn multiple_tabs() {
 
 #[test]
 fn clean_browser_shutdown() {
+	let config = Config::default();
 	let timestamp = Utc::now();
-	let mut tabs = Tabs::new();
+	let mut tabs = Tabs::new(&config);
 	let mut send = |kind| tabs.process_web_event(WebEvent { timestamp, kind });
 	assert_eq!(
 		send(WebEventKind::Updated { tab: 0, url: "https://example.com".to_owned() }),

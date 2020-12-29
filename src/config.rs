@@ -53,7 +53,15 @@ pub struct Rule {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct General {
+	#[serde(default = "default_reddit")]
+	pub reddit: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
 pub struct Config {
+	#[serde(default)]
+	pub general: General,
 	pub category: HashMap<String, Category>,
 	pub rules: Vec<Rule>,
 }
@@ -85,6 +93,16 @@ impl Config {
 	}
 }
 
+impl Default for General {
+	fn default() -> Self {
+		General { reddit: default_reddit() }
+	}
+}
+
+fn default_reddit() -> bool {
+	true
+}
+
 #[test]
 fn example() {
 	let text = r#"
@@ -99,6 +117,7 @@ categories = ["example"]
 enforce.close = {}
 "#;
 	let config = Config::parse(text);
+	assert_eq!(config.general.reddit, true);
 	assert_eq!(config.category.len(), 1);
 	assert_eq!(config.category["example"].domains, ["example.com", "example.org"]);
 	assert_eq!(config.category["example"].subreddits, ["all"]);

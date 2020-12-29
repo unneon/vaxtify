@@ -1,3 +1,4 @@
+use crate::config::Config;
 use url::Url;
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -8,8 +9,12 @@ pub enum Activity {
 }
 
 impl Activity {
-	pub fn from_url(url: &Url) -> Option<Activity> {
-		github_from_url(url).or_else(|| reddit_from_url(url)).or_else(|| internet_from_url(url))
+	pub fn from_url(url: &Url, config: &Config) -> Option<Activity> {
+		if config.general.reddit {
+			reddit_from_url(url).or_else(|| github_from_url(url)).or_else(|| internet_from_url(url))
+		} else {
+			github_from_url(url).or_else(|| internet_from_url(url))
+		}
 	}
 
 	#[cfg(test)]
@@ -47,12 +52,22 @@ fn internet_from_url(url: &Url) -> Option<Activity> {
 
 #[test]
 fn reddit_uppercase() {
+	let config = Config::default();
 	let url = "https://www.reddit.com/r/PrOgRaMmInG/".parse().unwrap();
-	assert_eq!(Activity::from_url(&url), Some(Activity::Reddit { subreddit: "programming".to_owned() }));
+	assert_eq!(Activity::from_url(&url, &config), Some(Activity::Reddit { subreddit: "programming".to_owned() }));
+}
+
+#[test]
+fn reddit_ignore() {
+	use crate::config::General;
+	let config = Config { general: General { reddit: false }, ..Config::default() };
+	let url = "https://www.reddit.com/r/PrOgRaMmInG/".parse().unwrap();
+	assert_eq!(Activity::from_url(&url, &config), Some(Activity::Internet { domain: "www.reddit.com".to_owned() }));
 }
 
 #[test]
 fn github() {
+	let config = Config::default();
 	let url = "https://github.com/pustaczek/icie".parse().unwrap();
-	assert_eq!(Activity::from_url(&url), Some(Activity::Github { repo: "pustaczek/icie".to_owned() }));
+	assert_eq!(Activity::from_url(&url, &config), Some(Activity::Github { repo: "pustaczek/icie".to_owned() }));
 }
