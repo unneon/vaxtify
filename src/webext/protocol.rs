@@ -1,66 +1,13 @@
 use std::io;
 use std::io::{Read, Write};
 
-pub enum ReadState {
-	Header { header: [u8; 4], filled: usize },
-	Data { data: Vec<u8>, filled: usize },
-}
-
-pub enum ReadError {
-	Wait,
-	EOF,
-	IO(io::Error),
-}
-
-impl ReadState {
-	pub fn new() -> ReadState {
-		ReadState::Header { header: [0u8; 4], filled: 0 }
-	}
-
-	pub fn read(&mut self, mut read: impl Read) -> Result<Vec<u8>, ReadError> {
-		match self {
-			ReadState::Header { header, filled } => {
-				read_to(header, filled, &mut read)?;
-				let len = u32::from_ne_bytes(*header) as usize;
-				let data = vec![0u8; len];
-				*self = ReadState::Data { data, filled: 0 };
-				self.read(read)
-			}
-			ReadState::Data { data, filled } => {
-				read_to(data, filled, read)?;
-				let data = std::mem::replace(data, Vec::new());
-				*self = ReadState::new();
-				Ok(data)
-			}
-		}
-	}
-}
-
-fn read_to(buffer: &mut [u8], filled: &mut usize, mut read: impl Read) -> Result<(), ReadError> {
-	match read.read(&mut buffer[*filled..]) {
-		Ok(0) => Err(ReadError::EOF),
-		Ok(n) => {
-			*filled += n;
-			if *filled == buffer.len() {
-				Ok(())
-			} else {
-				Err(ReadError::Wait)
-			}
-		}
-		Err(e) => Err(ReadError::IO(e)),
-	}
-}
-
 pub fn read(mut read: impl Read) -> Result<Vec<u8>, io::Error> {
-	let mut state = ReadState::new();
-	loop {
-		match state.read(&mut read) {
-			Ok(data) => break Ok(data),
-			Err(ReadError::Wait) => (),
-			Err(ReadError::EOF) => break Err(io::ErrorKind::UnexpectedEof.into()),
-			Err(ReadError::IO(e)) => break Err(e),
-		}
-	}
+	let mut header = [0; 4];
+	read.read_exact(&mut header)?;
+	let buffer_len = u32::from_ne_bytes(header) as usize;
+	let mut buffer = vec![0; buffer_len];
+	read.read_exact(&mut buffer)?;
+	Ok(buffer)
 }
 
 pub fn write(data: &[u8], mut output: impl Write) -> Result<(), io::Error> {
