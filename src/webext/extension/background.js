@@ -1,5 +1,12 @@
 let port = browser.runtime.connectNative("vaxtify");
 
+// Will be resent by the proxy for every restart of vaxtify, because the extension can't know when
+// that happens.
+port.postMessage({
+    "kind": "Handshake",
+    "version": browser.runtime.getManifest().version
+});
+
 function on_removed(tabId) {
     port.postMessage({
         "kind": "Removed",

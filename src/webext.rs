@@ -15,6 +15,7 @@ pub struct WebExt {
 enum WebEvent {
 	Removed { tab: i64 },
 	Updated { tab: i64, url: String },
+	Handshake { version: String },
 }
 
 #[derive(Serialize)]
@@ -45,6 +46,10 @@ impl WebExt {
 					WebEvent::Updated { tab, url } => {
 						let url = url.parse().unwrap();
 						Event::TabUpdate { tab, url }
+					}
+					WebEvent::Handshake { version } => {
+						assert_eq!(version, "0.1.0");
+						continue;
 					}
 				};
 				tx.send(event).unwrap();
