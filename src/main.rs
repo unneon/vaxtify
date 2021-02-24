@@ -1,3 +1,4 @@
+mod cli;
 mod config;
 mod filters;
 mod webext;
@@ -23,10 +24,22 @@ pub enum PermitError {
 
 #[derive(Debug)]
 pub enum Event {
-	PermitRequest { name: String, duration: Option<Duration>, responder: mpsc::Sender<PermitResponse> },
-	PermitEnd { name: String, responder: mpsc::Sender<PermitResponse> },
-	TabUpdate { tab: i64, url: Url },
-	TabDelete { tab: i64 },
+	PermitRequest {
+		name: String,
+		duration: Option<Duration>,
+		// responder: mpsc::Sender<PermitResponse>
+	},
+	PermitEnd {
+		name: String,
+		// responder: mpsc::Sender<PermitResponse>
+	},
+	TabUpdate {
+		tab: i64,
+		url: Url,
+	},
+	TabDelete {
+		tab: i64,
+	},
 	TabDeleteAll,
 }
 
@@ -76,11 +89,22 @@ pub type PermitResponse = Result<(), PermitError>;
 
 fn main() {
 	webext::proxy::check_and_run();
+	if std::env::args().nth(1).as_deref() == Some("daemon") {
+		run_daemon()
+	} else {
+		cli::run();
+	}
+}
+
+fn run_daemon() {
+	webext::proxy::check_and_run();
 
 	let config = Config::load();
 
 	let event_queue = mpsc::channel();
 	let webext = WebExt::new(event_queue.0.clone());
+	let event_queue_tx = event_queue.0.clone();
+	std::thread::spawn(move || setup_dbus(event_queue_tx));
 
 	let lookups = build_lookups(&config);
 	let mut tabs = HashMap::new();
@@ -138,6 +162,55 @@ fn main() {
 			allow_manager.reload(&now);
 			rule_reload_time = allow_manager.next_reload_time(&now);
 		}
+	}
+}
+
+fn setup_dbus(tx: mpsc::Sender<Event>) {
+	let tx1 = tx;
+	let tx2 = tx1.clone();
+	let tx3 = tx1.clone();
+	let conn = dbus::blocking::LocalConnection::new_session().unwrap();
+	conn.request_name("dev.pustaczek.Vaxtify", false, false, false).unwrap();
+	let f = dbus_tree::Factory::new_fn::<()>();
+	let tree = f.tree(()).add(
+		f.object_path("/", ()).introspectable().add(
+			f.interface("dev.pustaczek.Vaxtify", ())
+				.add_m(
+					f.method("PermitStart", (), move |m| {
+						let permit: &str = m.msg.get1().unwrap();
+						tx1.send(Event::PermitRequest { name: permit.to_owned(), duration: None }).unwrap();
+						Ok(vec![m.msg.method_return()])
+					})
+					.inarg::<&str, _>("permit"),
+				)
+				.add_m(
+					f.method("PermitStartWithDuration", (), move |m| {
+						let (permit, duration) = m.msg.get2();
+						let permit: &str = permit.unwrap();
+						let duration: u64 = duration.unwrap();
+						tx2.send(Event::PermitRequest {
+							name: permit.to_owned(),
+							duration: Some(Duration::from_secs(duration)),
+						})
+						.unwrap();
+						Ok(vec![m.msg.method_return()])
+					})
+					.inarg::<&str, _>("permit")
+					.inarg::<u64, _>("duration"),
+				)
+				.add_m(
+					f.method("PermitEnd", (), move |m| {
+						let permit: &str = m.msg.get1().unwrap();
+						tx3.send(Event::PermitEnd { name: permit.to_owned() }).unwrap();
+						Ok(vec![m.msg.method_return()])
+					})
+					.inarg::<&str, _>("permit"),
+				),
+		),
+	);
+	tree.start_receive(&conn);
+	loop {
+		conn.process(Duration::from_millis(1000)).unwrap();
 	}
 }
 
