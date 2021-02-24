@@ -51,12 +51,26 @@ struct Lookups<'a> {
 	regex_set: RegexSet,
 	category_count: usize,
 	category_id: HashMap<&'a str, usize>,
+	permit_id: HashMap<&'a str, usize>,
+	permit_rev: Vec<&'a str>,
 }
 
 struct AllowManager<'a> {
 	config: &'a Config,
 	lookups: &'a Lookups<'a>,
 	blocked: FixedBitSet,
+}
+
+struct PermitManager<'a> {
+	lookups: &'a Lookups<'a>,
+	unblocked: FixedBitSet,
+	state: Vec<PermitState<'a>>,
+}
+
+struct PermitState<'a> {
+	expires: Option<DateTime<Local>>,
+	last_active: Option<DateTime<Local>>,
+	details: &'a config::Permit,
 }
 
 impl<'a> AllowManager<'a> {
@@ -85,6 +99,44 @@ impl<'a> AllowManager<'a> {
 	}
 }
 
+impl<'a> PermitManager<'a> {
+	fn new(config: &'a Config, lookups: &'a Lookups<'a>) -> Self {
+		let unblocked = FixedBitSet::with_capacity(config.category.len());
+		let state = (0..config.permit.len())
+			.map(|index| PermitState {
+				expires: None,
+				last_active: None,
+				details: &config.permit[lookups.permit_rev[index]],
+			})
+			.collect();
+		PermitManager { lookups, unblocked, state }
+	}
+
+	fn unblocked(&self) -> &FixedBitSet {
+		&self.unblocked
+	}
+
+	fn reload(&mut self, now: &DateTime<Local>) {
+		self.unblocked.clear();
+		for state in &mut self.state {
+			if let Some(expires) = state.expires {
+				if expires <= *now {
+					state.expires = None;
+				}
+			}
+			if state.expires.is_some() {
+				for category in &state.details.categories {
+					self.unblocked.insert(self.lookups.category_id[category.as_str()]);
+				}
+			}
+		}
+	}
+
+	fn next_reload_time(&self) -> Option<DateTime<Local>> {
+		self.state.iter().filter_map(|state| state.expires).min()
+	}
+}
+
 pub type PermitResponse = Result<(), PermitError>;
 
 fn main() {
@@ -110,10 +162,13 @@ fn run_daemon() {
 	let mut tabs = HashMap::new();
 	let mut alive_tabs = HashSet::new();
 	let mut allow_manager = AllowManager::new(&config, &lookups);
+	let mut permit_manager = PermitManager::new(&config, &lookups);
 
 	let initial_time = Local::now();
 	allow_manager.reload(&initial_time);
-	let mut rule_reload_time = allow_manager.next_reload_time(&initial_time);
+	permit_manager.reload(&initial_time);
+	let mut rule_reload_time =
+		allow_manager.next_reload_time(&initial_time).into_iter().chain(permit_manager.next_reload_time()).min();
 
 	loop {
 		let now_before = Local::now();
@@ -132,11 +187,39 @@ fn run_daemon() {
 
 		if let Some(event) = event {
 			match event {
-				Event::PermitRequest { .. } => {}
-				Event::PermitEnd { .. } => {}
+				Event::PermitRequest { name, duration } => {
+					let now = Local::now();
+					let id = lookups.permit_id[name.as_str()];
+					let state = &mut permit_manager.state[id];
+					let details = state.details;
+					let duration = duration.or(details.length.default).unwrap();
+					if let Some(max_duration) = details.length.maximum {
+						assert!(duration <= max_duration);
+					}
+					if let (Some(last_active), Some(cooldown)) = (state.last_active, details.cooldown) {
+						let cooldown = chrono::Duration::from_std(cooldown).unwrap();
+						assert!(last_active + cooldown <= now);
+					}
+					let duration = chrono::Duration::from_std(duration).unwrap();
+					state.last_active = Some(now);
+					state.expires = Some(now + duration);
+					allow_manager.reload(&now);
+					permit_manager.reload(&now);
+					rule_reload_time =
+						allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
+				}
+				Event::PermitEnd { name } => {
+					let now = Local::now();
+					permit_manager.state[lookups.permit_id[name.as_str()]].expires = None;
+					allow_manager.reload(&now);
+					permit_manager.reload(&now);
+					rule_reload_time =
+						allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
+				}
 				Event::TabUpdate { tab, url } => {
 					let mask = compute_mask(&url, &lookups);
-					let is_blocked = mask.intersection(allow_manager.blocked()).count() > 0;
+					let is_blocked = mask.intersection(allow_manager.blocked()).count() > 0
+						&& mask.intersection(permit_manager.unblocked()).count() == 0;
 					if tabs.insert(tab, mask).is_none() {
 						alive_tabs.insert(tab);
 					}
@@ -160,7 +243,9 @@ fn run_daemon() {
 		} else {
 			let now = Local::now();
 			allow_manager.reload(&now);
-			rule_reload_time = allow_manager.next_reload_time(&now);
+			permit_manager.reload(&now);
+			rule_reload_time =
+				allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
 		}
 	}
 }
@@ -239,7 +324,13 @@ fn build_lookups(config: &Config) -> Lookups<'_> {
 		category_id.insert(name.as_ref(), index);
 	}
 	let regex_set = RegexSet::new(regex_set_vec).unwrap();
-	Lookups { domain, subreddit, github, regex_category, regex_set, category_count, category_id }
+	let mut permit_id = HashMap::new();
+	let mut permit_rev = Vec::new();
+	for (index, name) in config.permit.keys().enumerate() {
+		permit_id.insert(name.as_str(), index);
+		permit_rev.push(name.as_str());
+	}
+	Lookups { domain, subreddit, github, regex_category, regex_set, category_count, category_id, permit_id, permit_rev }
 }
 
 fn compute_mask(url: &Url, lookups: &Lookups<'_>) -> FixedBitSet {
