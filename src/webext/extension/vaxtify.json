@@ -1,6 +1,6 @@
 {
   "name": "vaxtify",
-  "description": "Integrated productivity manager to regain control of your computer and Internet use",
+  "description": "Vaxtify, distraction blocker for the stubborn",
   "path": "/home/matcegla/Projects/vaxtify/target/debug/vaxtify",
   "type": "stdio",
   "allowed_extensions": [
