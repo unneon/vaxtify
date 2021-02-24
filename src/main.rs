@@ -205,6 +205,7 @@ fn run_daemon() {
 					state.expires = Some(now + duration);
 					allow_manager.reload(&now);
 					permit_manager.reload(&now);
+					recheck_tabs(&webext, &mut tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
 					rule_reload_time =
 						allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
 				}
@@ -213,6 +214,7 @@ fn run_daemon() {
 					permit_manager.state[lookups.permit_id[name.as_str()]].expires = None;
 					allow_manager.reload(&now);
 					permit_manager.reload(&now);
+					recheck_tabs(&webext, &mut tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
 					rule_reload_time =
 						allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
 				}
@@ -224,11 +226,7 @@ fn run_daemon() {
 						alive_tabs.insert(tab);
 					}
 					if is_blocked {
-						let last_removed_tab = alive_tabs.remove(&tab) && alive_tabs.is_empty();
-						if last_removed_tab {
-							webext.create_empty_tab();
-						}
-						webext.close_tab(tab);
+						close_tab(tab, &mut alive_tabs, &webext);
 					}
 				}
 				Event::TabDelete { tab } => {
@@ -244,10 +242,40 @@ fn run_daemon() {
 			let now = Local::now();
 			allow_manager.reload(&now);
 			permit_manager.reload(&now);
+			recheck_tabs(&webext, &mut tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
 			rule_reload_time =
 				allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
 		}
 	}
+}
+
+fn recheck_tabs(
+	webext: &WebExt,
+	tabs: &mut HashMap<i64, FixedBitSet>,
+	alive_tabs: &mut HashSet<i64>,
+	allow_manager: &mut AllowManager,
+	permit_manager: &mut PermitManager,
+) {
+	let tabs_to_close = alive_tabs
+		.iter()
+		.copied()
+		.filter(|tab| {
+			let mask = &tabs[tab];
+			mask.intersection(allow_manager.blocked()).count() > 0
+				&& mask.intersection(permit_manager.unblocked()).count() == 0
+		})
+		.collect::<Vec<_>>();
+	for tab in tabs_to_close {
+		close_tab(tab, alive_tabs, &webext);
+	}
+}
+
+fn close_tab(tab: i64, alive_tabs: &mut HashSet<i64>, webext: &WebExt) {
+	let last_removed_tab = alive_tabs.remove(&tab) && alive_tabs.is_empty();
+	if last_removed_tab {
+		webext.create_empty_tab();
+	}
+	webext.close_tab(tab);
 }
 
 fn setup_dbus(tx: mpsc::Sender<Event>) {
