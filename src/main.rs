@@ -1,12 +1,14 @@
 mod cli;
 mod config;
 mod filters;
+mod logger;
 mod webext;
 
 use crate::config::Config;
 use crate::webext::WebExt;
 use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;
+use log::{debug, info};
 use regex::RegexSet;
 use std::collections::{HashMap, HashSet};
 use std::sync::mpsc;
@@ -59,6 +61,7 @@ struct AllowManager<'a> {
 	config: &'a Config,
 	lookups: &'a Lookups<'a>,
 	blocked: FixedBitSet,
+	last_state: Vec<bool>,
 }
 
 struct PermitManager<'a> {
@@ -75,8 +78,9 @@ struct PermitState<'a> {
 
 impl<'a> AllowManager<'a> {
 	fn new(config: &'a Config, lookups: &'a Lookups<'a>) -> Self {
-		let blacklist = FixedBitSet::with_capacity(config.category.len());
-		AllowManager { config, lookups, blocked: blacklist }
+		let blocked = FixedBitSet::with_capacity(config.category.len());
+		let last_state = vec![false; config.rule.len()];
+		AllowManager { config, lookups, blocked, last_state }
 	}
 
 	fn blocked(&self) -> &FixedBitSet {
@@ -85,8 +89,17 @@ impl<'a> AllowManager<'a> {
 
 	fn reload(&mut self, now: &DateTime<Local>) {
 		self.blocked.clear();
-		for rule in &self.config.rule {
-			if rule.is_active(now) {
+		for (index, rule) in self.config.rule.iter().enumerate() {
+			let is_active = rule.is_active(now);
+			if is_active != self.last_state[index] {
+				self.last_state[index] = is_active;
+				info!(
+					"Rule {} {} according to schedule.",
+					index + 1,
+					if is_active { "activated" } else { "deactivated" },
+				);
+			}
+			if is_active {
 				for category in &rule.categories {
 					self.blocked.insert(self.lookups.category_id[category.as_str()]);
 				}
@@ -118,10 +131,11 @@ impl<'a> PermitManager<'a> {
 
 	fn reload(&mut self, now: &DateTime<Local>) {
 		self.unblocked.clear();
-		for state in &mut self.state {
+		for (state_index, state) in self.state.iter_mut().enumerate() {
 			if let Some(expires) = state.expires {
 				if expires <= *now {
 					state.expires = None;
+					info!("Permit {:?} deactivated after using allotted time.", self.lookups.permit_rev[state_index]);
 				}
 			}
 			if state.expires.is_some() {
@@ -140,6 +154,7 @@ impl<'a> PermitManager<'a> {
 pub type PermitResponse = Result<(), PermitError>;
 
 fn main() {
+	logger::init().unwrap();
 	webext::proxy::check_and_run();
 	if std::env::args().nth(1).as_deref() == Some("daemon") {
 		run_daemon()
@@ -149,8 +164,6 @@ fn main() {
 }
 
 fn run_daemon() {
-	webext::proxy::check_and_run();
-
 	let config = Config::load();
 
 	let event_queue = mpsc::channel();
@@ -203,18 +216,22 @@ fn run_daemon() {
 					let duration = chrono::Duration::from_std(duration).unwrap();
 					state.last_active = Some(now);
 					state.expires = Some(now + duration);
+					info!("Permit {:?} activated on request.", name);
 					allow_manager.reload(&now);
 					permit_manager.reload(&now);
-					recheck_tabs(&webext, &mut tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
+					recheck_tabs(&webext, &tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
 					rule_reload_time =
 						allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
 				}
 				Event::PermitEnd { name } => {
 					let now = Local::now();
-					permit_manager.state[lookups.permit_id[name.as_str()]].expires = None;
+					let state = &mut permit_manager.state[lookups.permit_id[name.as_str()]];
+					assert!(state.expires.is_some());
+					state.expires = None;
+					info!("Permit {:?} deactivated on request.", name);
 					allow_manager.reload(&now);
 					permit_manager.reload(&now);
-					recheck_tabs(&webext, &mut tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
+					recheck_tabs(&webext, &tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
 					rule_reload_time =
 						allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
 				}
@@ -222,11 +239,11 @@ fn run_daemon() {
 					let mask = compute_mask(&url, &lookups);
 					let is_blocked = mask.intersection(allow_manager.blocked()).count() > 0
 						&& mask.intersection(permit_manager.unblocked()).count() == 0;
-					if tabs.insert(tab, mask).is_none() {
+					if tabs.insert(tab, (mask, url)).is_none() {
 						alive_tabs.insert(tab);
 					}
 					if is_blocked {
-						close_tab(tab, &mut alive_tabs, &webext);
+						close_tab(tab, &tabs, &mut alive_tabs, &webext);
 					}
 				}
 				Event::TabDelete { tab } => {
@@ -242,7 +259,7 @@ fn run_daemon() {
 			let now = Local::now();
 			allow_manager.reload(&now);
 			permit_manager.reload(&now);
-			recheck_tabs(&webext, &mut tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
+			recheck_tabs(&webext, &tabs, &mut alive_tabs, &mut allow_manager, &mut permit_manager);
 			rule_reload_time =
 				allow_manager.next_reload_time(&now).into_iter().chain(permit_manager.next_reload_time()).min();
 		}
@@ -251,7 +268,7 @@ fn run_daemon() {
 
 fn recheck_tabs(
 	webext: &WebExt,
-	tabs: &mut HashMap<i64, FixedBitSet>,
+	tabs: &HashMap<i64, (FixedBitSet, Url)>,
 	alive_tabs: &mut HashSet<i64>,
 	allow_manager: &mut AllowManager,
 	permit_manager: &mut PermitManager,
@@ -260,17 +277,18 @@ fn recheck_tabs(
 		.iter()
 		.copied()
 		.filter(|tab| {
-			let mask = &tabs[tab];
+			let mask = &tabs[tab].0;
 			mask.intersection(allow_manager.blocked()).count() > 0
 				&& mask.intersection(permit_manager.unblocked()).count() == 0
 		})
 		.collect::<Vec<_>>();
 	for tab in tabs_to_close {
-		close_tab(tab, alive_tabs, &webext);
+		close_tab(tab, tabs, alive_tabs, &webext);
 	}
 }
 
-fn close_tab(tab: i64, alive_tabs: &mut HashSet<i64>, webext: &WebExt) {
+fn close_tab(tab: i64, tabs: &HashMap<i64, (FixedBitSet, Url)>, alive_tabs: &mut HashSet<i64>, webext: &WebExt) {
+	debug!("Tab blocked with URL {:?}.", tabs[&tab].1);
 	let last_removed_tab = alive_tabs.remove(&tab) && alive_tabs.is_empty();
 	if last_removed_tab {
 		webext.create_empty_tab();
