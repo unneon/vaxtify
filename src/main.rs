@@ -10,6 +10,7 @@ mod tabs;
 mod webext;
 
 use crate::config::Config;
+use crate::permits::PermitResult;
 use crate::webext::WebExt;
 use chrono::{DateTime, Local};
 use permits::PermitManager;
@@ -21,22 +22,10 @@ use url::Url;
 
 #[derive(Debug)]
 pub enum Event {
-	PermitRequest {
-		name: String,
-		duration: Option<Duration>,
-		// responder: mpsc::Sender<PermitResponse>
-	},
-	PermitEnd {
-		name: String,
-		// responder: mpsc::Sender<PermitResponse>
-	},
-	TabUpdate {
-		tab: i64,
-		url: Url,
-	},
-	TabDelete {
-		tab: i64,
-	},
+	PermitRequest { name: String, duration: Option<Duration>, err_tx: mpsc::SyncSender<PermitResult> },
+	PermitEnd { name: String, err_tx: mpsc::SyncSender<PermitResult> },
+	TabUpdate { tab: i64, url: Url },
+	TabDelete { tab: i64 },
 	TabDeleteAll,
 }
 
@@ -68,20 +57,20 @@ fn run_daemon() {
 	let mut when_reload = compute_when_reload(&rules, &permits, &initial_now);
 
 	loop {
-		let timeout = compute_timeout(when_reload, Local::now());
-		let event = recv_maybe(&event_queue.1, timeout);
+		let timeout = when_reload.and_then(|when| (when - Local::now()).to_std().ok());
+		let event = recv_maybe(&event_queue.1, timeout).unwrap();
 		let now = Local::now();
 
 		if let Some(event) = event {
 			match event {
-				Event::PermitRequest { name, duration } => {
-					permits.activate(&name, duration, &now);
+				Event::PermitRequest { name, duration, err_tx } => {
+					err_tx.send(permits.activate(&name, duration, &now)).unwrap();
 					permits.reload(&now);
 					tabs.rescan(rules.blocked(), permits.unblocked(), &webext);
 					when_reload = compute_when_reload(&rules, &permits, &now);
 				}
-				Event::PermitEnd { name } => {
-					permits.deactivate(&name);
+				Event::PermitEnd { name, err_tx } => {
+					err_tx.send(permits.deactivate(&name)).unwrap();
 					permits.reload(&now);
 					tabs.rescan(rules.blocked(), permits.unblocked(), &webext);
 					when_reload = compute_when_reload(&rules, &permits, &now);
@@ -99,21 +88,14 @@ fn run_daemon() {
 	}
 }
 
-fn compute_timeout(when: Option<DateTime<Local>>, now: DateTime<Local>) -> Option<Duration> {
-	match when {
-		Some(when) if when > now => Some((when - now).to_std().unwrap()),
-		Some(_) => Some(Duration::from_secs(0)),
-		None => None,
-	}
-}
-
-fn recv_maybe<T>(rx: &mpsc::Receiver<T>, timeout: Option<Duration>) -> Option<T> {
+fn recv_maybe<T>(rx: &mpsc::Receiver<T>, timeout: Option<Duration>) -> Result<Option<T>, mpsc::RecvError> {
 	match timeout {
 		Some(timeout) => match rx.recv_timeout(timeout) {
-			Err(RecvTimeoutError::Timeout) => None,
-			event => Some(event.unwrap()),
+			Ok(event) => Ok(Some(event)),
+			Err(RecvTimeoutError::Timeout) => Ok(None),
+			Err(RecvTimeoutError::Disconnected) => Err(mpsc::RecvError),
 		},
-		None => Some(rx.recv().unwrap()),
+		None => Ok(Some(rx.recv()?)),
 	}
 }
 

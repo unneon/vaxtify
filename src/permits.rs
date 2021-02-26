@@ -1,16 +1,18 @@
+use crate::config;
 use crate::lookups::Lookups;
 use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;
 use log::info;
 use std::time::Duration;
 
-// enum PermitError {
-// 	PermitDoesNotExist,
-// 	PermitIsNotActive,
-// 	DurationTooLong,
-// 	DurationNotSpecified,
-// 	CooldownNotFinished,
-// }
+#[derive(Debug)]
+pub enum PermitError {
+	PermitDoesNotExist,
+	PermitIsNotActive,
+	DurationTooLong,
+	DurationNotSpecified,
+	CooldownNotFinished,
+}
 
 pub struct PermitManager<'a> {
 	lookups: &'a Lookups<'a>,
@@ -24,6 +26,8 @@ struct PermitState {
 	last_active: Option<DateTime<Local>>,
 }
 
+pub type PermitResult = Result<(), PermitError>;
+
 impl<'a> PermitManager<'a> {
 	pub fn new(lookups: &'a Lookups<'a>) -> Self {
 		let unblocked = FixedBitSet::with_capacity(lookups.category.len());
@@ -35,30 +39,26 @@ impl<'a> PermitManager<'a> {
 		&self.unblocked
 	}
 
-	pub fn activate(&mut self, name: &str, duration: Option<Duration>, now: &DateTime<Local>) {
-		let id = self.lookups.permit.id[name];
+	pub fn activate(&mut self, name: &str, duration: Option<Duration>, now: &DateTime<Local>) -> PermitResult {
+		let id = *self.lookups.permit.id.get(name).ok_or(PermitError::PermitDoesNotExist)?;
 		let details = self.lookups.permit.details[id];
 		let state = &mut self.state[id];
-		let duration = duration.or(details.length.default).unwrap();
-		if let Some(max_duration) = details.length.maximum {
-			assert!(duration <= max_duration);
-		}
-		if let (Some(last_active), Some(cooldown)) = (state.last_active, details.cooldown) {
-			let cooldown = chrono::Duration::from_std(cooldown).unwrap();
-			assert!(last_active + cooldown <= *now);
-		}
-		let duration = chrono::Duration::from_std(duration).unwrap();
+		let duration = duration.or(details.length.default).ok_or(PermitError::DurationNotSpecified)?;
+		check_duration(duration, details)?;
+		check_cooldown(now, state, details)?;
 		state.last_active = Some(*now);
-		state.expires = Some(*now + duration);
+		state.expires = Some(*now + chrono::Duration::from_std(duration).unwrap());
 		info!("Permit {:?} activated on request.", name);
+		Ok(())
 	}
 
-	pub fn deactivate(&mut self, name: &str) {
-		let id = self.lookups.permit.id[name];
+	pub fn deactivate(&mut self, name: &str) -> PermitResult {
+		let id = *self.lookups.permit.id.get(name).ok_or(PermitError::PermitDoesNotExist)?;
 		let state = &mut self.state[id];
-		assert!(state.expires.is_some());
+		check_active(state)?;
 		state.expires = None;
 		info!("Permit {:?} deactivated on request.", name);
+		Ok(())
 	}
 
 	pub fn reload(&mut self, now: &DateTime<Local>) {
@@ -85,4 +85,26 @@ impl<'a> PermitManager<'a> {
 	}
 }
 
-// pub type PermitResponse = Result<(), PermitError>;
+fn check_duration(duration: Duration, details: &config::Permit) -> PermitResult {
+	match details.length.maximum {
+		Some(mx) if duration > mx => Err(PermitError::DurationTooLong),
+		_ => Ok(()),
+	}
+}
+
+fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::Permit) -> PermitResult {
+	match (state.last_active, details.cooldown) {
+		(Some(last_active), Some(cooldown)) if last_active + chrono::Duration::from_std(cooldown).unwrap() > *now => {
+			Err(PermitError::CooldownNotFinished)
+		}
+		_ => Ok(()),
+	}
+}
+
+fn check_active(state: &PermitState) -> PermitResult {
+	if state.expires.is_some() {
+		Ok(())
+	} else {
+		Err(PermitError::PermitIsNotActive)
+	}
+}

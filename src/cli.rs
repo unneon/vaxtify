@@ -51,13 +51,20 @@ fn parse_duration(text: &str) -> Result<(u64, u64, u64), &'static str> {
 		Some(cap) => cap,
 		None => return Err("duration does not match (\\d+h)?(\\d+min)?(\\d+s)?"),
 	};
-	let hours = if let Some(hours) = cap.get(1) { hours.as_str().parse().unwrap() } else { 0 };
-	let minutes = if let Some(minutes) = cap.get(2) { minutes.as_str().parse().unwrap() } else { 0 };
-	let seconds = if let Some(seconds) = cap.get(3) { seconds.as_str().parse().unwrap() } else { 0 };
+	let hours = parse_unit(cap.get(1))?;
+	let minutes = parse_unit(cap.get(2))?;
+	let seconds = parse_unit(cap.get(3))?;
 	if hours == 0 && minutes == 0 && seconds == 0 {
 		return Err("duration must be nonzero");
 	}
 	Ok((hours, minutes, seconds))
+}
+
+fn parse_unit(group: Option<regex::Match>) -> Result<u64, &'static str> {
+	match group {
+		Some(group) => group.as_str().parse().map_err(|_| "invalid number in duration"),
+		None => Ok(0),
+	}
 }
 
 #[test]
