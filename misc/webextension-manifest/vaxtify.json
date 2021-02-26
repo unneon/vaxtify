@@ -1,7 +1,7 @@
 {
   "name": "vaxtify",
   "description": "Distraction blocker for the stubborn",
-  "path": "/home/matcegla/Projects/vaxtify/target/debug/vaxtify",
+  "path": "/usr/bin/vaxtify",
   "type": "stdio",
   "allowed_extensions": [
     "vaxtify@pustaczek.dev"
