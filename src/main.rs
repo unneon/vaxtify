@@ -101,7 +101,7 @@ fn recv_maybe<T>(rx: &mpsc::Receiver<T>, timeout: Option<Duration>) -> Result<Op
 
 fn compute_when_reload(rules: &RuleManager, permits: &PermitManager, now: &DateTime<Local>) -> Option<DateTime<Local>> {
 	match (rules.when_reload(now), permits.when_reload()) {
-		(Some(a), Some(b)) => Some(a.max(b)),
+		(Some(a), Some(b)) => Some(a.min(b)),
 		(Some(a), None) | (None, Some(a)) => Some(a),
 		(None, None) => None,
 	}
