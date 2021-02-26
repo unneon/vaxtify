@@ -1,0 +1,7 @@
+[Unit]
+Description=Vaxtify, distraction manager for the stubborn
+
+[Service]
+Type=dbus
+BusName=dev.pustaczek.Vaxtify
+ExecStart=/usr/bin/vaxtify daemon
