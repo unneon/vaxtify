@@ -14,7 +14,7 @@ Vaxtify is still a work in progress, so it only works on Linux and you need to c
 If you use Arch Linux, you can use a prepared [PKGBUILD](misc/arch-packaging/PKGBUILD) script.
 Otherwise, install Rust, lidbus-1-dev or equivalent, and manually run the build command and copy files as shown in the linked script.
 
-Vaxtify daemon will be managed by systemd, so run `systemd --user daemon-reload` to notice the new unit.
+Vaxtify daemon will be managed by systemd, so run `systemctl --user daemon-reload` to notice the new unit.
 If you did this after installing the extension, restart the browser.
 
 ### Install the browser extension
