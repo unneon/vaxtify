@@ -74,9 +74,7 @@ I suggest to check if everything works before editing it.
 
 ### Running
 
-Run `systemctl --user start vaxtify` to launch the daemon instance.
-Autostart is temporarily broken, but would be done with `systemctl --user enable vaxtify`.
-
+Run `systemctl --user enable --now vaxtify` to launch the daemon instance and add it to autostart.
 Check that going to [youtube](https://youtube.com), [r/funny](https://www.reddit.com/r/funny), [github.com/pustaczek/icie](https://github.com/pustaczek/icie) or Googling "cat memes" will immediately close the tab, unless it's between 22:00 and 23:30 in local time.
 
 To use permits, run `vaxtify permit dailymemes` and check that the websites won't be blocked for 15 minutes.
