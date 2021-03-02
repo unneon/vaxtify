@@ -57,7 +57,7 @@ impl<'a> Tabs<'a> {
 	}
 
 	pub fn close(&mut self, tab: i64, webext: &WebExt) {
-		debug!("Tab blocked with URL {:?}.", self.tabs[&tab].url);
+		debug!("Tab blocked on {}.", self.tabs[&tab].url);
 		let is_last = self.alive.remove(&tab) && self.alive.is_empty();
 		if is_last {
 			webext.create_empty_tab();
