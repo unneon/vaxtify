@@ -21,5 +21,6 @@ package() {
   cd "${srcdir}/vaxtify-${pkgver}"
   install -Dm755 "target/release/vaxtify" "${pkgdir}/usr/bin/vaxtify"
   install -Dm644 "misc/systemd-unit/vaxtify.service" "${pkgdir}/etc/systemd/user/vaxtify.service"
+  install -Dm644 "misc/dbus-service/dev.pustaczek.Vaxtify.service" "${pkgdir}/usr/share/dbus-1/services/dev.pustaczek.Vaxtify.service"
   install -Dm644 "misc/webextension-manifest/vaxtify.json" "${pkgdir}/usr/lib/mozilla/native-messaging-hosts/vaxtify.json"
 }
