@@ -1,5 +1,5 @@
+use crate::dbusapi::DBus;
 use crate::lookups::Lookups;
-use crate::webext::WebExt;
 use fixedbitset::FixedBitSet;
 use log::debug;
 use std::collections::{HashMap, HashSet};
@@ -21,7 +21,7 @@ impl<'a> Tabs<'a> {
 		Tabs { lookups, tabs: HashMap::new(), alive: HashSet::new() }
 	}
 
-	pub fn insert(&mut self, tab: i64, url: Url, blocked: &FixedBitSet, unblocked: &FixedBitSet, webext: &WebExt) {
+	pub fn insert(&mut self, tab: i64, url: Url, blocked: &FixedBitSet, unblocked: &FixedBitSet, dbus: &DBus) {
 		let mask = self.lookups.url_to_mask(&url);
 		let should_close = should_block_mask(&mask, blocked, unblocked);
 		let state = TabState { mask, url };
@@ -29,7 +29,7 @@ impl<'a> Tabs<'a> {
 			self.alive.insert(tab);
 		}
 		if should_close {
-			self.close(tab, webext);
+			self.close(tab, dbus);
 		}
 	}
 
@@ -44,7 +44,7 @@ impl<'a> Tabs<'a> {
 	}
 
 	// TODO: Figure out how to avoid dependency on webext here?
-	pub fn rescan(&mut self, blocked: &FixedBitSet, unblocked: &FixedBitSet, webext: &WebExt) {
+	pub fn rescan(&mut self, blocked: &FixedBitSet, unblocked: &FixedBitSet, dbus: &DBus) {
 		let to_close: Vec<i64> = self
 			.alive
 			.iter()
@@ -52,17 +52,17 @@ impl<'a> Tabs<'a> {
 			.filter(|tab| should_block_mask(&self.tabs[tab].mask, blocked, unblocked))
 			.collect();
 		for tab in to_close {
-			self.close(tab, webext);
+			self.close(tab, dbus);
 		}
 	}
 
-	pub fn close(&mut self, tab: i64, webext: &WebExt) {
+	pub fn close(&mut self, tab: i64, dbus: &DBus) {
 		debug!("Tab blocked on {}.", self.tabs[&tab].url);
 		let is_last = self.alive.remove(&tab) && self.alive.is_empty();
 		if is_last && self.lookups.config.general.prevent_browser_close {
-			webext.create_empty_tab();
+			dbus.tab_create_empty();
 		}
-		webext.close_tab(tab);
+		dbus.tab_close(tab);
 	}
 }
 

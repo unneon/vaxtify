@@ -1,7 +1,9 @@
-use crate::webext::{protocol, PORT};
+use crate::webext::dbus::{DevPustaczekVaxtify, DevPustaczekVaxtifyTabClose, DevPustaczekVaxtifyTabCreateEmpty};
+use crate::webext::message::{deserialize_event, serialize_command, Command, Event};
+use crate::webext::protocol;
+use dbus::blocking::LocalConnection;
+use dbus::Message;
 use std::io::Write;
-use std::net::TcpStream;
-use std::sync::mpsc::{sync_channel, SyncSender};
 use std::thread;
 use std::time::Duration;
 
@@ -12,61 +14,56 @@ pub fn check_and_run() {
 }
 
 fn run() -> ! {
-	let tx = spawn_reverse_pipe();
-	run_pipe(tx);
+	spawn_signals_to_commands();
+	run_events_to_calls();
 	std::process::exit(0);
 }
 
-fn spawn_reverse_pipe() -> SyncSender<TcpStream> {
-	let (tx, rx) = sync_channel(0);
+fn spawn_signals_to_commands() {
 	thread::spawn(move || {
-		let mut stdout = std::io::stdout();
-		while let Ok(mut socket) = rx.recv() {
-			while let Ok(message) = protocol::read(&mut socket) {
-				protocol::write(&message, &mut stdout).unwrap();
+		// TODO: Avoid creating two connections? This caused dropped return values before.
+		let conn = LocalConnection::new_session().unwrap();
+		let proxy = conn.with_proxy("dev.pustaczek.Vaxtify", "/", Duration::from_millis(5000));
+		proxy
+			.match_signal(move |h: DevPustaczekVaxtifyTabClose, _: &LocalConnection, _: &Message| {
+				// TODO: Delegate PID filter to dbus instead, somehow?
+				// TODO: Add PID filter when PID support in daemon is implemented.
+				let stdout = std::io::stdout();
+				let mut stdout = stdout.lock();
+				protocol::write(&serialize_command(Command::Close { tab: h.tab }), &mut stdout).unwrap();
 				stdout.flush().unwrap();
-			}
+				true
+			})
+			.unwrap();
+		proxy
+			.match_signal(move |_h: DevPustaczekVaxtifyTabCreateEmpty, _: &LocalConnection, _: &Message| {
+				// TODO: Add PID filter when PID support in daemon is implemented.
+				let stdout = std::io::stdout();
+				let mut stdout = stdout.lock();
+				protocol::write(&serialize_command(Command::CreateEmpty {}), &mut stdout).unwrap();
+				stdout.flush().unwrap();
+				true
+			})
+			.unwrap();
+		loop {
+			conn.process(Duration::from_millis(5000)).unwrap();
 		}
 	});
-	tx
 }
 
-fn run_pipe(tx: SyncSender<TcpStream>) {
-	let mut socket_slot = None;
-	let mut stdin = std::io::stdin();
-	let mut handshake = None;
+fn run_events_to_calls() {
+	let pid = std::process::id() as i64;
+	let conn = LocalConnection::new_session().unwrap();
+	let stdin = std::io::stdin();
+	let mut stdin = stdin.lock();
+	let proxy = conn.with_proxy("dev.pustaczek.Vaxtify", "/", Duration::from_millis(5000));
+	proxy.browser_register(pid).unwrap();
 	while let Ok(message) = protocol::read(&mut stdin) {
-		let is_handshake = handshake.is_none();
-		if is_handshake {
-			handshake = Some(message.clone());
-		}
-		let mut socket = get_socket(&mut socket_slot, &tx, handshake.as_deref());
-		if !is_handshake && (protocol::write(&message, &mut socket).is_err() || socket.flush().is_err()) {
-			socket_slot = None;
+		match deserialize_event(&message) {
+			Event::Removed { tab } => proxy.browser_tab_delete(pid, tab).unwrap(),
+			Event::Updated { tab, url } => proxy.browser_tab_update(pid, tab, &url).unwrap(),
+			Event::Handshake { .. } => {}
 		}
 	}
-}
-
-fn get_socket<'a>(
-	socket_slot: &'a mut Option<TcpStream>,
-	tx: &SyncSender<TcpStream>,
-	handshake: Option<&[u8]>,
-) -> &'a mut TcpStream {
-	socket_slot.get_or_insert_with(|| loop {
-		match TcpStream::connect(("localhost", PORT)) {
-			Ok(mut socket) => {
-				// Resend the handshake message for every new connection. The proxy has to do this, because the
-				// extension does not know when connections start and end.
-				if let Some(handshake) = handshake {
-					if protocol::write(handshake, &mut socket).is_err() {
-						std::thread::sleep(Duration::from_secs(1));
-						continue;
-					}
-				}
-				tx.send(socket.try_clone().unwrap()).unwrap();
-				break socket;
-			}
-			Err(_) => std::thread::sleep(Duration::from_secs(1)),
-		}
-	})
+	proxy.browser_unregister(pid).unwrap();
 }

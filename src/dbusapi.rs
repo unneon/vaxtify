@@ -1,29 +1,83 @@
 use crate::permits::{PermitError, PermitResult};
 use crate::Event;
-use dbus_tree::{MTFn, MethodInfo};
-use std::sync::mpsc;
+use dbus::blocking::LocalConnection;
+use dbus::channel::Sender;
+use dbus::strings::Interface;
+use dbus::Path;
+use dbus_tree::{MTFn, MethodInfo, Signal, Tree};
+use log::debug;
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 
-pub fn spawn(tx: mpsc::Sender<Event>) {
-	std::thread::spawn(move || {
-		let tree = build_tree(tx);
-		let conn = dbus::blocking::LocalConnection::new_session().unwrap();
-		conn.request_name("dev.pustaczek.Vaxtify", false, false, false).unwrap();
-		tree.start_receive(&conn);
-		loop {
-			conn.process(Duration::from_millis(1000)).unwrap();
-		}
-	});
+// TODO: Figure out a better way of communicating between these threads?
+// The main problem is that callbacks contain mpsc::Sender so they aren't Sync, and for some reason dbus-tree only
+// supports non-Send and Send-Sync callbacks. Could figure out why and maybe fix it, could try to call .channel() which
+// returns a raw Send-Sync socket-like thingy and figure out lifetimes instead.
+
+#[derive(Debug)]
+enum Command {
+	TabClose { tab: i64 },
+	TabCreateEmpty,
 }
 
-fn build_tree(event_tx: mpsc::Sender<Event>) -> dbus_tree::Tree<dbus_tree::MTFn, ()> {
+pub struct DBus {
+	command_tx: mpsc::Sender<Command>,
+}
+
+struct TreeInfo {
+	tree: Tree<MTFn, ()>,
+	signal_close: Arc<Signal<()>>,
+	signal_create_empty: Arc<Signal<()>>,
+}
+
+impl DBus {
+	pub fn new(tx: mpsc::Sender<Event>) -> DBus {
+		let (command_tx, command_rx) = mpsc::channel();
+		std::thread::spawn(move || {
+			let path = Path::new("/").unwrap();
+			let iface = Interface::new("dev.pustaczek.Vaxtify").unwrap();
+			let info = build_tree(tx);
+			let conn = LocalConnection::new_session().unwrap();
+			conn.request_name("dev.pustaczek.Vaxtify", false, false, false).unwrap();
+			info.tree.start_receive(&conn);
+			loop {
+				conn.process(Duration::from_millis(100)).unwrap();
+				while let Ok(command) = command_rx.try_recv() {
+					let msg = match command {
+						Command::TabClose { tab } => info.signal_close.msg(&path, &iface).append2(0i64, tab),
+						Command::TabCreateEmpty => info.signal_create_empty.msg(&path, &iface).append1(0i64),
+					};
+					conn.send(msg).unwrap();
+				}
+			}
+		});
+		DBus { command_tx }
+	}
+
+	pub fn tab_close(&self, tab: i64) {
+		self.command_tx.send(Command::TabClose { tab }).unwrap();
+	}
+
+	pub fn tab_create_empty(&self) {
+		self.command_tx.send(Command::TabCreateEmpty).unwrap();
+	}
+}
+
+fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 	let event_tx1 = event_tx;
 	let event_tx2 = event_tx1.clone();
 	let event_tx3 = event_tx1.clone();
+	let event_tx4 = event_tx1.clone();
+	let event_tx5 = event_tx1.clone();
+	let event_tx6 = event_tx1.clone();
 	let f = dbus_tree::Factory::new_fn::<()>();
-	f.tree(()).add(
+	let signal_close = Arc::new(f.signal("TabClose", ()).sarg::<i64, _>("pid").sarg::<i64, _>("tab"));
+	let signal_create_empty = Arc::new(f.signal("TabCreateEmpty", ()).sarg::<i64, _>("pid"));
+	let tree = f.tree(()).add(
 		f.object_path("/", ()).introspectable().add(
 			f.interface("dev.pustaczek.Vaxtify", ())
+				.add_s(signal_close.clone())
+				.add_s(signal_create_empty.clone())
 				.add_m(
 					f.method("PermitStart", (), move |m| {
 						let name = m.msg.read1()?;
@@ -52,9 +106,47 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> dbus_tree::Tree<dbus_tree::MTFn,
 						dbus_wait(m, &event_tx3, event, err_rx)
 					})
 					.inarg::<&str, _>("permit"),
+				)
+				.add_m(
+					f.method("BrowserRegister", (), move |m| {
+						let pid: i64 = m.msg.read1()?;
+						debug!("Browser {} has been connected.", pid);
+						Ok(vec![m.msg.method_return()])
+					})
+					.inarg::<i64, _>("pid"),
+				)
+				.add_m(
+					f.method("BrowserTabUpdate", (), move |m| {
+						let (_pid, tab, url): (i64, i64, &str) = m.msg.read3()?;
+						let url = url.parse().unwrap();
+						event_tx4.send(Event::TabUpdate { tab, url }).unwrap();
+						Ok(vec![m.msg.method_return()])
+					})
+					.inarg::<i64, _>("pid")
+					.inarg::<i64, _>("tab")
+					.inarg::<&str, _>("url"),
+				)
+				.add_m(
+					f.method("BrowserTabDelete", (), move |m| {
+						let (_pid, tab): (i64, i64) = m.msg.read2()?;
+						event_tx5.send(Event::TabDelete { tab }).unwrap();
+						Ok(vec![m.msg.method_return()])
+					})
+					.inarg::<i64, _>("pid")
+					.inarg::<i64, _>("tab"),
+				)
+				.add_m(
+					f.method("BrowserUnregister", (), move |m| {
+						let pid: i64 = m.msg.read1()?;
+						debug!("Browser {} has been disconnected.", pid);
+						event_tx6.send(Event::TabDeleteAll).unwrap();
+						Ok(vec![m.msg.method_return()])
+					})
+					.inarg::<i64, _>("pid"),
 				),
 		),
-	)
+	);
+	TreeInfo { tree, signal_close, signal_create_empty }
 }
 
 fn dbus_wait(

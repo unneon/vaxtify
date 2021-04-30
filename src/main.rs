@@ -10,8 +10,8 @@ mod tabs;
 mod webext;
 
 use crate::config::Config;
+use crate::dbusapi::DBus;
 use crate::permits::PermitResult;
-use crate::webext::WebExt;
 use chrono::{DateTime, Local};
 use permits::PermitManager;
 use rules::RuleManager;
@@ -43,8 +43,7 @@ fn run_daemon() {
 	let config = Config::load();
 
 	let event_queue = mpsc::channel();
-	let webext = WebExt::new(event_queue.0.clone());
-	dbusapi::spawn(event_queue.0.clone());
+	let dbus = DBus::new(event_queue.0);
 
 	let lookups = lookups::Lookups::new(&config);
 	let mut tabs = tabs::Tabs::new(&lookups);
@@ -66,23 +65,23 @@ fn run_daemon() {
 				Event::PermitRequest { name, duration, err_tx } => {
 					err_tx.send(permits.activate(&name, duration, &now)).unwrap();
 					permits.reload(&now);
-					tabs.rescan(rules.blocked(), permits.unblocked(), &webext);
+					tabs.rescan(rules.blocked(), permits.unblocked(), &dbus);
 					when_reload = compute_when_reload(&rules, &permits, &now);
 				}
 				Event::PermitEnd { name, err_tx } => {
 					err_tx.send(permits.deactivate(&name)).unwrap();
 					permits.reload(&now);
-					tabs.rescan(rules.blocked(), permits.unblocked(), &webext);
+					tabs.rescan(rules.blocked(), permits.unblocked(), &dbus);
 					when_reload = compute_when_reload(&rules, &permits, &now);
 				}
-				Event::TabUpdate { tab, url } => tabs.insert(tab, url, rules.blocked(), permits.unblocked(), &webext),
+				Event::TabUpdate { tab, url } => tabs.insert(tab, url, rules.blocked(), permits.unblocked(), &dbus),
 				Event::TabDelete { tab } => tabs.remove(tab),
 				Event::TabDeleteAll => tabs.clear(),
 			}
 		} else {
 			rules.reload(&now);
 			permits.reload(&now);
-			tabs.rescan(rules.blocked(), permits.unblocked(), &webext);
+			tabs.rescan(rules.blocked(), permits.unblocked(), &dbus);
 			when_reload = compute_when_reload(&rules, &permits, &now);
 		}
 	}
