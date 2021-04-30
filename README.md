@@ -35,6 +35,10 @@ Each permit has a name, and a list of categories it will allow you to visit (des
 Optionally, you can set how long they will last by default, how long they can last at most, and how rarely they can be used.
 
 ```toml
+[general]
+# If the tab being blocked is the last one in the browser process, create a new empty one.
+prevent_browser_close = true
+
 # Define a new category, called "memes".
 [category.memes]
   # Include any youtube videos at all.

@@ -7,6 +7,11 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 #[derive(Debug, Deserialize)]
+pub struct General {
+	pub prevent_browser_close: bool,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Category {
 	#[serde(default)]
 	pub domains: Vec<String>,
@@ -54,8 +59,9 @@ pub struct Permit {
 	pub categories: Vec<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Config {
+	pub general: General,
 	pub category: HashMap<String, Category>,
 	pub rule: Vec<Rule>,
 	#[serde(default)]
@@ -111,6 +117,9 @@ fn upper_bound_with_time(greater_than: &DateTime<Local>, set_time: &NaiveTime) -
 #[test]
 fn example() {
 	let text = r#"
+[general]
+prevent_browser_close = true
+
 [category.example]
 domains = ["example.com"]
 subreddits = ["all"]
@@ -129,6 +138,7 @@ cooldown.hours = 20
 categories = ["example"]
 "#;
 	let config = Config::parse(text);
+	assert_eq!(config.general.prevent_browser_close, true);
 	assert_eq!(config.category.len(), 1);
 	assert_eq!(config.category["example"].domains, ["example.com"]);
 	assert_eq!(config.category["example"].subreddits, ["all"]);

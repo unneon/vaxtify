@@ -59,7 +59,7 @@ impl<'a> Tabs<'a> {
 	pub fn close(&mut self, tab: i64, webext: &WebExt) {
 		debug!("Tab blocked on {}.", self.tabs[&tab].url);
 		let is_last = self.alive.remove(&tab) && self.alive.is_empty();
-		if is_last {
+		if is_last && self.lookups.config.general.prevent_browser_close {
 			webext.create_empty_tab();
 		}
 		webext.close_tab(tab);
