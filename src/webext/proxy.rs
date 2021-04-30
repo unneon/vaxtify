@@ -22,26 +22,29 @@ fn run() -> ! {
 fn spawn_signals_to_commands() {
 	thread::spawn(move || {
 		// TODO: Avoid creating two connections? This caused dropped return values before.
+		let pid = std::process::id();
 		let conn = LocalConnection::new_session().unwrap();
 		let proxy = conn.with_proxy("dev.pustaczek.Vaxtify", "/", Duration::from_millis(5000));
 		proxy
 			.match_signal(move |h: DevPustaczekVaxtifyTabClose, _: &LocalConnection, _: &Message| {
 				// TODO: Delegate PID filter to dbus instead, somehow?
-				// TODO: Add PID filter when PID support in daemon is implemented.
-				let stdout = std::io::stdout();
-				let mut stdout = stdout.lock();
-				protocol::write(&serialize_command(Command::Close { tab: h.tab }), &mut stdout).unwrap();
-				stdout.flush().unwrap();
+				if h.pid == pid {
+					let stdout = std::io::stdout();
+					let mut stdout = stdout.lock();
+					protocol::write(&serialize_command(Command::Close { tab: h.tab }), &mut stdout).unwrap();
+					stdout.flush().unwrap();
+				}
 				true
 			})
 			.unwrap();
 		proxy
-			.match_signal(move |_h: DevPustaczekVaxtifyTabCreateEmpty, _: &LocalConnection, _: &Message| {
-				// TODO: Add PID filter when PID support in daemon is implemented.
-				let stdout = std::io::stdout();
-				let mut stdout = stdout.lock();
-				protocol::write(&serialize_command(Command::CreateEmpty {}), &mut stdout).unwrap();
-				stdout.flush().unwrap();
+			.match_signal(move |h: DevPustaczekVaxtifyTabCreateEmpty, _: &LocalConnection, _: &Message| {
+				if h.pid == pid {
+					let stdout = std::io::stdout();
+					let mut stdout = stdout.lock();
+					protocol::write(&serialize_command(Command::CreateEmpty {}), &mut stdout).unwrap();
+					stdout.flush().unwrap();
+				}
 				true
 			})
 			.unwrap();
@@ -52,7 +55,7 @@ fn spawn_signals_to_commands() {
 }
 
 fn run_events_to_calls() {
-	let pid = std::process::id() as i64;
+	let pid = std::process::id();
 	let conn = LocalConnection::new_session().unwrap();
 	let stdin = std::io::stdin();
 	let mut stdin = stdin.lock();

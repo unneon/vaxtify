@@ -3,15 +3,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "kind")]
 pub enum Event {
-	Removed { tab: i64 },
-	Updated { tab: i64, url: String },
+	Removed { tab: i32 },
+	Updated { tab: i32, url: String },
 	Handshake { version: String },
 }
 
 #[derive(Serialize)]
 #[serde(tag = "kind")]
 pub enum Command {
-	Close { tab: i64 },
+	Close { tab: i32 },
 	CreateEmpty {},
 }
 

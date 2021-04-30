@@ -12,6 +12,7 @@ mod webext;
 use crate::config::Config;
 use crate::dbusapi::DBus;
 use crate::permits::PermitResult;
+use crate::tabs::TabId;
 use chrono::{DateTime, Local};
 use permits::PermitManager;
 use rules::RuleManager;
@@ -24,9 +25,9 @@ use url::Url;
 pub enum Event {
 	PermitRequest { name: String, duration: Option<Duration>, err_tx: mpsc::SyncSender<PermitResult> },
 	PermitEnd { name: String, err_tx: mpsc::SyncSender<PermitResult> },
-	TabUpdate { tab: i64, url: Url },
-	TabDelete { tab: i64 },
-	TabDeleteAll,
+	TabUpdate { tab: TabId, url: Url },
+	TabDelete { tab: TabId },
+	TabDeleteAll { pid: u32 },
 }
 
 fn main() {
@@ -76,7 +77,7 @@ fn run_daemon() {
 				}
 				Event::TabUpdate { tab, url } => tabs.insert(tab, url, rules.blocked(), permits.unblocked(), &dbus),
 				Event::TabDelete { tab } => tabs.remove(tab),
-				Event::TabDeleteAll => tabs.clear(),
+				Event::TabDeleteAll { pid } => tabs.clear(pid),
 			}
 		} else {
 			rules.reload(&now);

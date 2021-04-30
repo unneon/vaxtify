@@ -5,10 +5,16 @@ use log::debug;
 use std::collections::{HashMap, HashSet};
 use url::Url;
 
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct TabId {
+	pub pid: u32,
+	pub tab: i32,
+}
+
 pub struct Tabs<'a> {
 	lookups: &'a Lookups<'a>,
-	tabs: HashMap<i64, TabState>,
-	alive: HashSet<i64>,
+	tabs: HashMap<TabId, TabState>,
+	alive: HashSet<TabId>,
 }
 
 struct TabState {
@@ -21,7 +27,7 @@ impl<'a> Tabs<'a> {
 		Tabs { lookups, tabs: HashMap::new(), alive: HashSet::new() }
 	}
 
-	pub fn insert(&mut self, tab: i64, url: Url, blocked: &FixedBitSet, unblocked: &FixedBitSet, dbus: &DBus) {
+	pub fn insert(&mut self, tab: TabId, url: Url, blocked: &FixedBitSet, unblocked: &FixedBitSet, dbus: &DBus) {
 		let mask = self.lookups.url_to_mask(&url);
 		let should_close = should_block_mask(&mask, blocked, unblocked);
 		let state = TabState { mask, url };
@@ -33,19 +39,19 @@ impl<'a> Tabs<'a> {
 		}
 	}
 
-	pub fn remove(&mut self, tab: i64) {
+	pub fn remove(&mut self, tab: TabId) {
 		self.tabs.remove(&tab);
 		self.alive.remove(&tab);
 	}
 
-	pub fn clear(&mut self) {
-		self.tabs.clear();
-		self.alive.clear();
+	pub fn clear(&mut self, pid: u32) {
+		self.tabs.retain(|tab, _| tab.pid != pid);
+		self.alive.retain(|tab| tab.pid != pid);
 	}
 
 	// TODO: Figure out how to avoid dependency on webext here?
 	pub fn rescan(&mut self, blocked: &FixedBitSet, unblocked: &FixedBitSet, dbus: &DBus) {
-		let to_close: Vec<i64> = self
+		let to_close: Vec<TabId> = self
 			.alive
 			.iter()
 			.copied()
@@ -56,11 +62,11 @@ impl<'a> Tabs<'a> {
 		}
 	}
 
-	pub fn close(&mut self, tab: i64, dbus: &DBus) {
+	pub fn close(&mut self, tab: TabId, dbus: &DBus) {
 		debug!("Tab blocked on {}.", self.tabs[&tab].url);
 		let is_last = self.alive.remove(&tab) && self.alive.is_empty();
 		if is_last && self.lookups.config.general.prevent_browser_close {
-			dbus.tab_create_empty();
+			dbus.tab_create_empty(tab.pid);
 		}
 		dbus.tab_close(tab);
 	}
