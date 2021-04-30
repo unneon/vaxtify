@@ -22,15 +22,11 @@ impl<'a> RuleManager<'a> {
 
 	pub fn reload(&mut self, now: &DateTime<Local>) {
 		self.blocked.clear();
-		for (index, rule) in self.lookups.config.rule.values().enumerate() {
+		for (index, (name, rule)) in self.lookups.config.rule.iter().enumerate() {
 			let is_active = rule.is_active(now);
 			if is_active != self.state[index] {
 				self.state[index] = is_active;
-				info!(
-					"Rule {} {} according to schedule.",
-					index + 1,
-					if is_active { "activated" } else { "deactivated" },
-				);
+				info!("Rule {:?} {} according to schedule.", name, if is_active { "activated" } else { "deactivated" },);
 			}
 			if is_active {
 				for category in &rule.categories {
