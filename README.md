@@ -7,22 +7,16 @@ In case a fixed schedule is not enough, it can be configured to let you manually
 
 ## Getting started
 
-Vaxtify is still a work in progress, so it only works on Linux and you need to compile it from sources.
+Vaxtify works on Linux, and the required extension is packaged for Firefox.
 
 ### Install the program
 
 If you use Arch Linux, you can use a prepared [PKGBUILD](misc/arch-packaging/PKGBUILD) script.
 Otherwise, install Rust, lidbus-1-dev or equivalent, and manually run the build command and copy files as shown in the linked script.
 
-Vaxtify daemon will be managed by systemd, so run `systemctl --user daemon-reload` to notice the new unit.
-If you did this after installing the extension, restart the browser.
+Vaxtify daemon will be managed by systemd, so run `systemctl --user daemon-reload` to load the installed service files.
 
-### Install the browser extension
-
-View the [latest release](https://github.com/pustaczek/vaxtify/releases/latest) on github and click on the vaxtify.xpi asset.
-Your browser should download and install it after asking you for permission.
-
-### Configuration
+### Configure
 
 In Vaxtify, you first define categories which group sites you may want to block.
 These can include domain names, subreddits, github repositories, and custom regexes which will be matched on the page URL.
@@ -76,10 +70,15 @@ prevent_browser_close = true
 Copy this file to ~/.config/vaxtify.toml.
 I suggest to check if everything works before editing it.
 
-### Running
+### Install the browser extension
 
-Run `systemctl --user enable --now vaxtify` to launch the daemon instance and add it to autostart.
-Check that going to [youtube](https://youtube.com), [r/funny](https://www.reddit.com/r/funny), [github.com/pustaczek/icie](https://github.com/pustaczek/icie) or Googling "cat memes" will immediately close the tab, unless it's between 22:00 and 23:30 in local time.
+View the [latest release](https://github.com/pustaczek/vaxtify/releases/latest) on github and click on the vaxtify.xpi asset.
+Your browser should download and install it after asking you for permission.
+
+### Enjoy
+
+The daemon will launch automatically, as soon as you install the web extension (thanks to D-Bus activation).
+Assuming you have not modified the default config yet, you can check that going to [youtube](https://youtube.com), [r/funny](https://www.reddit.com/r/funny), [github.com/pustaczek/icie](https://github.com/pustaczek/icie) or Googling "cat memes" will immediately close the tab, unless it's between 22:00 and 23:30 in local time.
 
 To use permits, run `vaxtify permit dailymemes` and check that the websites won't be blocked for 15 minutes.
 You can also run `vaxtify permit dailymemes 2min` to only activate it for 2 minutes, or `vaxtify permit dailymemes end` to end it quicker than planned.
