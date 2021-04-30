@@ -55,20 +55,20 @@ prevent_browser_close = true
 
 # Create a rule that applies to everything from "meme" category.
 # It will be active before 22:00 and after 23:30.
-[[rule]]
-  # To make an always active rule, replace this with allowed.never = {}.
-  allowed.during.since = { hour = 22, min = 0 }
-  allowed.during.until = { hour = 23, min = 30 }
+[rule.toomanymemes]
+  # To make an always active rule, remove both of these lines.
+  allowed.since = { hour = 22, min = 0 }
+  allowed.until = { hour = 23, min = 30 }
   # Rule will apply only to categories you put in this field.
   categories = ["memes"]
 
 # Define a new permit, called "dailymemes".
 [permit.dailymemes]
   # It will be active for 15 minutes at most.
-  length.default.minutes = 15
-  length.maximum.minutes = 15
+  length.default = { mins = 15 }
+  length.maximum = { mins = 15 }
   # After using it, you will need to wait a day before using it again.
-  cooldown.hours = 20
+  cooldown = { hours = 20 }
   # Using it will let you look at memes regardless of the time.
   categories = ["memes"]
 ```

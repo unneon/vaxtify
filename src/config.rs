@@ -23,22 +23,18 @@ pub struct Category {
 	pub regexes: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Eq, PartialEq)]
-pub enum Limit {
-	#[serde(rename = "during")]
-	During {
-		#[serde(with = "serde_time")]
-		since: NaiveTime,
-		#[serde(with = "serde_time")]
-		until: NaiveTime,
-	},
-	#[serde(rename = "never")]
-	Never,
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+pub struct TimeRange {
+	#[serde(with = "serde_time")]
+	since: NaiveTime,
+	#[serde(with = "serde_time")]
+	until: NaiveTime,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Rule {
-	pub allowed: Limit,
+	#[serde(default)]
+	pub allowed: Option<TimeRange>,
 	pub categories: Vec<String>,
 }
 
@@ -63,7 +59,7 @@ pub struct Permit {
 pub struct Config {
 	pub general: General,
 	pub category: HashMap<String, Category>,
-	pub rule: Vec<Rule>,
+	pub rule: HashMap<String, Rule>,
 	#[serde(default)]
 	pub permit: HashMap<String, Permit>,
 }
@@ -83,7 +79,7 @@ impl Config {
 impl Rule {
 	pub fn is_active(&self, now: &DateTime<Local>) -> bool {
 		match self.allowed {
-			Limit::During { since, until } => {
+			Some(TimeRange { since, until }) => {
 				let time = now.naive_local().time();
 				if since <= until {
 					time < since || time > until
@@ -91,15 +87,12 @@ impl Rule {
 					time > until && time < since
 				}
 			}
-			Limit::Never => true,
+			None => true,
 		}
 	}
 
 	pub fn next_change_time(&self, now: &DateTime<Local>) -> Option<DateTime<Local>> {
-		let (since, until) = match self.allowed {
-			Limit::During { since, until } => (since, until),
-			Limit::Never => return None,
-		};
+		let TimeRange { since, until } = self.allowed?;
 		let next_start = upper_bound_with_time(now, &since);
 		let next_end = upper_bound_with_time(now, &until);
 		Some(next_start.min(next_end))
@@ -126,33 +119,42 @@ subreddits = ["all"]
 githubs = ["pustaczek/icie"]
 regexes = ["example\\.org"]
 
-[[rule]]
-allowed.during.since = { hour = 23, min = 0 }
-allowed.during.until = { hour = 0, min = 0 }
+[category.other]
+githubs = ["pustaczek/vaxtify"]
+
+[rule.things]
+allowed.since = { hour = 23, min = 0 }
+allowed.until = { hour = 0, min = 0 }
 categories = ["example"]
 
+[rule.never]
+categories = ["other"]
+
 [permit.example]
-length.default.minutes = 30
-length.maximum.minutes = 40
-cooldown.hours = 20
-categories = ["example"]
+length.default = { mins = 30 }
+length.maximum = { mins = 40 }
+cooldown = { hours = 20 }
+categories = ["other"]
 "#;
 	let config = Config::parse(text);
 	assert_eq!(config.general.prevent_browser_close, true);
-	assert_eq!(config.category.len(), 1);
+	assert_eq!(config.category.len(), 2);
 	assert_eq!(config.category["example"].domains, ["example.com"]);
 	assert_eq!(config.category["example"].subreddits, ["all"]);
 	assert_eq!(config.category["example"].githubs, ["pustaczek/icie"]);
 	assert_eq!(config.category["example"].regexes, ["example\\.org"]);
-	assert_eq!(config.rule.len(), 1);
+	assert_eq!(config.category["other"].githubs, ["pustaczek/vaxtify"]);
+	assert_eq!(config.rule.len(), 2);
 	assert_eq!(
-		config.rule[0].allowed,
-		Limit::During { since: NaiveTime::from_hms(23, 0, 0), until: NaiveTime::from_hms(0, 0, 0) }
+		config.rule["things"].allowed,
+		Some(TimeRange { since: NaiveTime::from_hms(23, 0, 0), until: NaiveTime::from_hms(0, 0, 0) })
 	);
-	assert_eq!(config.rule[0].categories, ["example"]);
+	assert_eq!(config.rule["things"].categories, ["example"]);
+	assert_eq!(config.rule["never"].allowed, None);
+	assert_eq!(config.rule["never"].categories, ["other"]);
 	assert_eq!(config.permit.len(), 1);
 	assert_eq!(config.permit["example"].length.default, Some(Duration::from_secs(30 * 60)));
 	assert_eq!(config.permit["example"].length.maximum, Some(Duration::from_secs(40 * 60)));
 	assert_eq!(config.permit["example"].cooldown, Some(Duration::from_secs(20 * 60 * 60)));
-	assert_eq!(config.permit["example"].categories, ["example"]);
+	assert_eq!(config.permit["example"].categories, ["other"]);
 }

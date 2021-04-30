@@ -22,7 +22,7 @@ impl<'a> RuleManager<'a> {
 
 	pub fn reload(&mut self, now: &DateTime<Local>) {
 		self.blocked.clear();
-		for (index, rule) in self.lookups.config.rule.iter().enumerate() {
+		for (index, rule) in self.lookups.config.rule.values().enumerate() {
 			let is_active = rule.is_active(now);
 			if is_active != self.state[index] {
 				self.state[index] = is_active;
@@ -41,11 +41,11 @@ impl<'a> RuleManager<'a> {
 	}
 
 	pub fn when_reload(&self, now: &DateTime<Local>) -> Option<DateTime<Local>> {
-		for (index, rule) in self.lookups.config.rule.iter().enumerate() {
+		for (index, rule) in self.lookups.config.rule.values().enumerate() {
 			if rule.is_active(now) != self.state[index] {
 				return Some(*now);
 			}
 		}
-		self.lookups.config.rule.iter().filter_map(|rule| rule.next_change_time(now)).min()
+		self.lookups.config.rule.values().filter_map(|rule| rule.next_change_time(now)).min()
 	}
 }

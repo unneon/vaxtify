@@ -8,7 +8,7 @@ enum Unit {
 	Days(u32),
 	#[serde(rename = "hours")]
 	Hours(u32),
-	#[serde(rename = "minutes")]
+	#[serde(rename = "mins")]
 	Minutes(u32),
 	#[serde(rename = "seconds")]
 	Seconds(u32),
