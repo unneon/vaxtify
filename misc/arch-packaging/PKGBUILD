@@ -10,7 +10,7 @@ license=('MPL2')
 depends=('dbus' 'gcc-libs')
 makedepends=('cargo')
 source=("${url}/archive/v${pkgver}.tar.gz")
-sha256sums=('53a1b44ad2454184dc1263212f022ad47221b267780cbe6011b2241b395f604c')
+sha256sums=('SKIP')
 
 build() {
   cd "${srcdir}/vaxtify-${pkgver}"
