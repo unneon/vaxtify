@@ -1,6 +1,7 @@
 use crate::permits::{PermitError, PermitResult};
 use crate::tabs::TabId;
 use crate::Event;
+use dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply;
 use dbus::blocking::LocalConnection;
 use dbus::channel::Sender;
 use dbus::strings::Interface;
@@ -38,7 +39,8 @@ impl DBus {
 			let iface = Interface::new("dev.pustaczek.Vaxtify").unwrap();
 			let info = build_tree(tx);
 			let conn = LocalConnection::new_session().unwrap();
-			conn.request_name("dev.pustaczek.Vaxtify", false, false, false).unwrap();
+			let name_reply = conn.request_name("dev.pustaczek.Vaxtify", false, false, true).unwrap();
+			assert_eq!(name_reply, RequestNameReply::PrimaryOwner);
 			info.tree.start_receive(&conn);
 			loop {
 				conn.process(Duration::from_millis(100)).unwrap();
