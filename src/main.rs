@@ -16,8 +16,8 @@ use crate::tabs::TabId;
 use chrono::{DateTime, Local};
 use permits::PermitManager;
 use rules::RuleManager;
-use std::sync::mpsc;
 use std::sync::mpsc::RecvTimeoutError;
+use std::sync::{mpsc, Arc};
 use std::time::Duration;
 use url::Url;
 
@@ -41,7 +41,36 @@ fn main() {
 }
 
 fn run_daemon() {
-	let config = Config::load();
+	let config = Arc::new(Config::load());
+	let config2 = Arc::clone(&config);
+
+	std::thread::spawn(move || {
+		// TODO: Make permits work with processes.
+		loop {
+			// TODO: Make sleep time configurable.
+			std::thread::sleep(Duration::from_secs(10));
+			let now = Local::now();
+			// TODO: Optimize these lookups on the main threads side?
+			let mut categories: Vec<_> =
+				config2.rule.values().filter(|rule| rule.is_active(&now)).flat_map(|rule| &rule.categories).collect();
+			categories.sort();
+			categories.dedup();
+			let mut processes: Vec<_> =
+				categories.into_iter().flat_map(|category| &config2.category[category].processes).collect();
+			processes.sort();
+			processes.dedup();
+			if processes.is_empty() {
+				continue;
+			}
+			std::process::Command::new("killall")
+				.arg("-9")
+				.args(processes)
+				.stdout(std::process::Stdio::null())
+				.stderr(std::process::Stdio::null())
+				.status()
+				.unwrap();
+		}
+	});
 
 	let event_queue = mpsc::channel();
 	let dbus = DBus::new(event_queue.0);

@@ -24,6 +24,8 @@ pub struct Category {
 	pub githubs: Vec<String>,
 	#[serde(default)]
 	pub regexes: Vec<String>,
+	#[serde(default)]
+	pub processes: Vec<String>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
@@ -126,6 +128,7 @@ domains = ["example.com"]
 subreddits = ["all"]
 githubs = ["pustaczek/icie"]
 regexes = ["example\\.org"]
+processes = ["chrome"]
 
 [category.other]
 githubs = ["pustaczek/vaxtify"]
@@ -153,6 +156,7 @@ categories = ["other"]
 	assert_eq!(config.category["example"].subreddits, ["all"]);
 	assert_eq!(config.category["example"].githubs, ["pustaczek/icie"]);
 	assert_eq!(config.category["example"].regexes, ["example\\.org"]);
+	assert_eq!(config.category["example"].processes, ["chrome"]);
 	assert_eq!(config.category["other"].githubs, ["pustaczek/vaxtify"]);
 	assert_eq!(config.rule.len(), 2);
 	assert_eq!(
