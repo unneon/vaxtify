@@ -32,6 +32,10 @@ Optionally, you can set how long they will last by default, how long they can la
 [general]
 # If the tab being blocked is the last one in the browser process, create a new empty one.
 prevent_browser_close = true
+# Whether to close all tabs, and not only the one that was just blocked.
+close_all_on_block = false
+# Uncommenting this will cause vaxtify to block everything for 5 minutes, after something was blocked.
+# close_all_after_block = { mins = 5 }
 
 # Define a new category, called "memes".
 [category.memes]

@@ -66,23 +66,25 @@ fn run_daemon() {
 				Event::PermitRequest { name, duration, err_tx } => {
 					err_tx.send(permits.activate(&name, duration, &now)).unwrap();
 					permits.reload(&now);
-					tabs.rescan(rules.blocked(), permits.unblocked(), &dbus);
+					tabs.rescan(rules.blocked(), permits.unblocked(), &dbus, &now);
 					when_reload = compute_when_reload(&rules, &permits, &now);
 				}
 				Event::PermitEnd { name, err_tx } => {
 					err_tx.send(permits.deactivate(&name)).unwrap();
 					permits.reload(&now);
-					tabs.rescan(rules.blocked(), permits.unblocked(), &dbus);
+					tabs.rescan(rules.blocked(), permits.unblocked(), &dbus, &now);
 					when_reload = compute_when_reload(&rules, &permits, &now);
 				}
-				Event::TabUpdate { tab, url } => tabs.insert(tab, url, rules.blocked(), permits.unblocked(), &dbus),
+				Event::TabUpdate { tab, url } => {
+					tabs.insert(tab, url, rules.blocked(), permits.unblocked(), &dbus, &now)
+				}
 				Event::TabDelete { tab } => tabs.remove(tab),
 				Event::TabDeleteAll { pid } => tabs.clear(pid),
 			}
 		} else {
 			rules.reload(&now);
 			permits.reload(&now);
-			tabs.rescan(rules.blocked(), permits.unblocked(), &dbus);
+			tabs.rescan(rules.blocked(), permits.unblocked(), &dbus, &now);
 			when_reload = compute_when_reload(&rules, &permits, &now);
 		}
 	}

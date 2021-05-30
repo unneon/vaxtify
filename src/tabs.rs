@@ -1,5 +1,6 @@
 use crate::dbusapi::DBus;
 use crate::lookups::Lookups;
+use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;
 use log::debug;
 use std::collections::{HashMap, HashSet};
@@ -15,6 +16,7 @@ pub struct Tabs<'a> {
 	lookups: &'a Lookups<'a>,
 	tabs: HashMap<TabId, TabState>,
 	alive: HashSet<TabId>,
+	block_all_until: DateTime<Local>,
 }
 
 struct TabState {
@@ -24,18 +26,31 @@ struct TabState {
 
 impl<'a> Tabs<'a> {
 	pub fn new(lookups: &'a Lookups<'a>) -> Tabs<'a> {
-		Tabs { lookups, tabs: HashMap::new(), alive: HashSet::new() }
+		Tabs {
+			lookups,
+			tabs: HashMap::new(),
+			alive: HashSet::new(),
+			block_all_until: Local::now() - chrono::Duration::seconds(1),
+		}
 	}
 
-	pub fn insert(&mut self, tab: TabId, url: Url, blocked: &FixedBitSet, unblocked: &FixedBitSet, dbus: &DBus) {
+	pub fn insert(
+		&mut self,
+		tab: TabId,
+		url: Url,
+		blocked: &FixedBitSet,
+		unblocked: &FixedBitSet,
+		dbus: &DBus,
+		now: &DateTime<Local>,
+	) {
 		let mask = self.lookups.url_to_mask(&url);
-		let should_close = should_block_mask(&mask, blocked, unblocked);
+		let should_close = *now <= self.block_all_until || should_block_mask(&mask, blocked, unblocked);
 		let state = TabState { mask, url };
 		if self.tabs.insert(tab, state).is_none() {
 			self.alive.insert(tab);
 		}
 		if should_close {
-			self.close(tab, dbus);
+			self.close(tab, dbus, now);
 		}
 	}
 
@@ -50,7 +65,7 @@ impl<'a> Tabs<'a> {
 	}
 
 	// TODO: Figure out how to avoid dependency on webext here?
-	pub fn rescan(&mut self, blocked: &FixedBitSet, unblocked: &FixedBitSet, dbus: &DBus) {
+	pub fn rescan(&mut self, blocked: &FixedBitSet, unblocked: &FixedBitSet, dbus: &DBus, now: &DateTime<Local>) {
 		let to_close: Vec<TabId> = self
 			.alive
 			.iter()
@@ -58,17 +73,25 @@ impl<'a> Tabs<'a> {
 			.filter(|tab| should_block_mask(&self.tabs[tab].mask, blocked, unblocked))
 			.collect();
 		for tab in to_close {
-			self.close(tab, dbus);
+			self.close(tab, dbus, now);
 		}
 	}
 
-	pub fn close(&mut self, tab: TabId, dbus: &DBus) {
+	pub fn close(&mut self, tab: TabId, dbus: &DBus, now: &DateTime<Local>) {
 		debug!("Tab blocked on {}.", self.tabs[&tab].url);
 		let is_last = self.alive.remove(&tab) && self.alive.is_empty();
+		if let Some(close_all_after_block) = self.lookups.config.general.close_all_after_block {
+			self.block_all_until = *now + chrono::Duration::from_std(close_all_after_block).unwrap();
+		}
 		if is_last && self.lookups.config.general.prevent_browser_close {
 			dbus.tab_create_empty(tab.pid);
 		}
 		dbus.tab_close(tab);
+		if self.lookups.config.general.close_all_on_block {
+			if let Some(other_alive) = self.alive.iter().next().copied() {
+				self.close(other_alive, dbus, now);
+			}
+		}
 	}
 }
 

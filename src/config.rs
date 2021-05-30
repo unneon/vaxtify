@@ -9,6 +9,9 @@ use std::time::Duration;
 #[derive(Debug, Deserialize)]
 pub struct General {
 	pub prevent_browser_close: bool,
+	pub close_all_on_block: bool,
+	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
+	pub close_all_after_block: Option<Duration>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -68,7 +71,10 @@ impl Config {
 	pub fn load() -> Config {
 		let path = dirs::config_dir().unwrap().join("vaxtify.toml");
 		let file = std::fs::read_to_string(path).unwrap();
-		Config::parse(&file)
+		let config = Config::parse(&file);
+		assert!(!config.general.prevent_browser_close || !config.general.close_all_on_block);
+		assert!(config.general.close_all_on_block || config.general.close_all_after_block.is_none());
+		config
 	}
 
 	pub fn parse(file: &str) -> Config {
@@ -111,7 +117,9 @@ fn upper_bound_with_time(greater_than: &DateTime<Local>, set_time: &NaiveTime) -
 fn example() {
 	let text = r#"
 [general]
-prevent_browser_close = true
+prevent_browser_close = false
+close_all_on_block = true
+close_all_after_block = { mins = 5 }
 
 [category.example]
 domains = ["example.com"]
@@ -137,7 +145,9 @@ cooldown = { hours = 20 }
 categories = ["other"]
 "#;
 	let config = Config::parse(text);
-	assert_eq!(config.general.prevent_browser_close, true);
+	assert_eq!(config.general.prevent_browser_close, false);
+	assert_eq!(config.general.close_all_on_block, true);
+	assert_eq!(config.general.close_all_after_block, Some(Duration::from_secs(5 * 60)));
 	assert_eq!(config.category.len(), 2);
 	assert_eq!(config.category["example"].domains, ["example.com"]);
 	assert_eq!(config.category["example"].subreddits, ["all"]);
