@@ -12,7 +12,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install system dependencies
-      run: sudo apt-get install libdbus-1-dev
+      run: sudo apt-get install libdbus-1-dev llvm
     - name: Build
       run: cargo build --all
     - name: Test
@@ -33,25 +33,19 @@ jobs:
       run: cargo clippy --all -- -D warnings
   Coverage:
     runs-on: ubuntu-latest
-    env:
-      CARGO_INCREMENTAL: 0
-      RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
-      RUSTDOCFLAGS: -Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
     steps:
     - uses: actions/checkout@v2
     - name: Install Rust nightly
       run: rustup default nightly
     - name: Install system dependencies
       run: sudo apt-get install libdbus-1-dev
-    - name: Install grcov
-      run: curl -L https://github.com/mozilla/grcov/releases/download/v0.5.15/grcov-linux-x86_64.tar.bz2 | tar jxf -
-    - name: Build
-      run: cargo build --all
     - name: Test
-      run: cargo test --all
-    - name: Generate coverage report
-      run: ./grcov ./target/debug/ -s . -t lcov --llvm --ignore-not-existing --ignore "/*" -o lcov.info
+      run: RUSTFLAGS="-Z instrument-coverage" LLVM_PROFILE_FILE="json5format.profraw" cargo test --tests
+    - name: Generate coverage report (merge .profraw files)
+      run: llvm-profdata merge -sparse json5format.profraw -o json5format.profdata
+    - name: Generate coverage report (render Codecov-compatible output)
+      run: llvm-cov show `ls target/debug/deps/vaxtify-* | head -n1` -instr-profile=json5format.profdata --ignore-filename-regex='/.cargo/registry|/rustc/' > coverage.txt
     - name: Send coverage report
-      run: bash <(curl -s https://codecov.io/bash) -f lcov.info
+      run: bash <(curl -s https://codecov.io/bash)
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
