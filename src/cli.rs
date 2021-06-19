@@ -15,13 +15,20 @@ pub fn run() {
 	let proxy = conn.with_proxy("dev.pustaczek.Vaxtify", "/", Duration::from_millis(500));
 	let permit = argv.permit.as_str();
 	let duration = argv.duration.map_or(0, |duration| duration.as_secs());
-	let _: () = if argv.is_end {
-		proxy.method_call("dev.pustaczek.Vaxtify", "PermitEnd", (permit,)).unwrap()
+	let r = if argv.is_end {
+		proxy.method_call("dev.pustaczek.Vaxtify", "PermitEnd", (permit,))
 	} else if argv.duration.is_some() {
-		proxy.method_call("dev.pustaczek.Vaxtify", "PermitStartWithDuration", (permit, duration)).unwrap()
+		proxy.method_call("dev.pustaczek.Vaxtify", "PermitStartWithDuration", (permit, duration))
 	} else {
-		proxy.method_call("dev.pustaczek.Vaxtify", "PermitStart", (permit,)).unwrap()
+		proxy.method_call("dev.pustaczek.Vaxtify", "PermitStart", (permit,))
 	};
+	match r {
+		Ok(()) => {}
+		Err(e) => {
+			println!("\x1B[1;31merror:\x1B[0m {}", e);
+			std::process::exit(1);
+		}
+	}
 }
 
 fn parse_args() -> Result<Args, &'static str> {
