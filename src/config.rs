@@ -82,7 +82,7 @@ impl Config {
 	}
 
 	pub fn parse(file: &str) -> Config {
-		toml::from_str(&file).unwrap()
+		toml::from_str(file).unwrap()
 	}
 }
 
