@@ -42,9 +42,9 @@ jobs:
     - name: Test
       run: RUSTFLAGS="-Z instrument-coverage" LLVM_PROFILE_FILE="json5format.profraw" cargo test --tests
     - name: Generate coverage report (merge .profraw files)
-      run: llvm-12/bin/llvm-profdata merge -sparse json5format.profraw -o json5format.profdata
+      run: /usr/bin/llvm-12/bin/llvm-profdata merge -sparse json5format.profraw -o json5format.profdata
     - name: Generate coverage report (render Codecov-compatible output)
-      run: llvm-12/bin/llvm-cov show `ls target/debug/deps/vaxtify-* | head -n1` -instr-profile=json5format.profdata --ignore-filename-regex='/.cargo/registry|/rustc/' > coverage.txt
+      run: /usr/bin/llvm-12/bin/llvm-cov show `ls target/debug/deps/vaxtify-* | head -n1` -instr-profile=json5format.profdata --ignore-filename-regex='/.cargo/registry|/rustc/' > coverage.txt
     - name: Send coverage report
       run: bash <(curl -s https://codecov.io/bash)
       env:
