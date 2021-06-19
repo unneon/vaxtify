@@ -38,7 +38,7 @@ jobs:
     - name: Install Rust nightly
       run: rustup default nightly
     - name: Install system dependencies
-      run: sudo apt-get install libdbus-1-dev llvm
+      run: sudo apt-get install libdbus-1-dev llvm-12
     - name: Test
       run: RUSTFLAGS="-Z instrument-coverage" LLVM_PROFILE_FILE="json5format.profraw" cargo test --tests
     - name: Generate coverage report (merge .profraw files)
