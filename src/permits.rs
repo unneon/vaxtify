@@ -12,6 +12,7 @@ pub enum PermitError {
 	DurationTooLong,
 	DurationNotSpecified,
 	CooldownNotFinished,
+	AvailableBadTime,
 }
 
 pub struct PermitManager<'a> {
@@ -46,6 +47,7 @@ impl<'a> PermitManager<'a> {
 		let duration = duration.or(details.length.default).ok_or(PermitError::DurationNotSpecified)?;
 		check_duration(duration, details)?;
 		check_cooldown(now, state, details)?;
+		check_available(now, details)?;
 		state.last_active = Some(*now);
 		state.expires = Some(*now + chrono::Duration::from_std(duration).unwrap());
 		info!("Permit {:?} activated on request.", name);
@@ -98,6 +100,14 @@ fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::
 			Err(PermitError::CooldownNotFinished)
 		}
 		_ => Ok(()),
+	}
+}
+
+fn check_available(now: &DateTime<Local>, details: &config::Permit) -> PermitResult {
+	if details.is_available(now) {
+		Ok(())
+	} else {
+		Err(PermitError::AvailableBadTime)
 	}
 }
 

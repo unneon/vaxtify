@@ -57,6 +57,8 @@ pub struct Permit {
 	pub length: PermitLength,
 	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
 	pub cooldown: Option<Duration>,
+	#[serde(default)]
+	pub available: Option<TimeRange>,
 	pub categories: Vec<String>,
 }
 
@@ -84,19 +86,21 @@ impl Config {
 	}
 }
 
+impl TimeRange {
+	fn contains(&self, now: &DateTime<Local>) -> bool {
+		let TimeRange { since, until } = *self;
+		let time = now.naive_local().time();
+		if since <= until {
+			time >= since && time < until
+		} else {
+			time >= since || time < until
+		}
+	}
+}
+
 impl Rule {
 	pub fn is_active(&self, now: &DateTime<Local>) -> bool {
-		match self.allowed {
-			Some(TimeRange { since, until }) => {
-				let time = now.naive_local().time();
-				if since <= until {
-					time < since || time > until
-				} else {
-					time > until && time < since
-				}
-			}
-			None => true,
-		}
+		self.allowed.map_or(true, |allowed| !allowed.contains(now))
 	}
 
 	pub fn next_change_time(&self, now: &DateTime<Local>) -> Option<DateTime<Local>> {
@@ -104,6 +108,12 @@ impl Rule {
 		let next_start = upper_bound_with_time(now, &since);
 		let next_end = upper_bound_with_time(now, &until);
 		Some(next_start.min(next_end))
+	}
+}
+
+impl Permit {
+	pub fn is_available(&self, now: &DateTime<Local>) -> bool {
+		self.available.map_or(true, |available| available.contains(now))
 	}
 }
 
@@ -145,6 +155,8 @@ categories = ["other"]
 length.default = { mins = 30 }
 length.maximum = { mins = 40 }
 cooldown = { hours = 20 }
+available.since = { hour = 20, min = 0 }
+available.until = { hour = 0, min = 0 }
 categories = ["other"]
 "#;
 	let config = Config::parse(text);
@@ -170,5 +182,9 @@ categories = ["other"]
 	assert_eq!(config.permit["example"].length.default, Some(Duration::from_secs(30 * 60)));
 	assert_eq!(config.permit["example"].length.maximum, Some(Duration::from_secs(40 * 60)));
 	assert_eq!(config.permit["example"].cooldown, Some(Duration::from_secs(20 * 60 * 60)));
+	assert_eq!(
+		config.permit["example"].available,
+		Some(TimeRange { since: NaiveTime::from_hms(20, 0, 0), until: NaiveTime::from_hms(0, 0, 0) })
+	);
 	assert_eq!(config.permit["example"].categories, ["other"]);
 }

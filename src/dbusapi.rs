@@ -167,6 +167,7 @@ fn dbus_wait(
 				PermitError::DurationTooLong => "duration is too long",
 				PermitError::DurationNotSpecified => "duration is not specified",
 				PermitError::CooldownNotFinished => "cooldown is not finished",
+				PermitError::AvailableBadTime => "permit is not available during this time of day",
 			};
 			Err(dbus::Error::new_custom("dev.pustaczek.Vaxtify.Error", message).into())
 		}
