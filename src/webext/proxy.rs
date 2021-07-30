@@ -1,4 +1,6 @@
-use crate::webext::dbus::{DevPustaczekVaxtify, DevPustaczekVaxtifyTabClose, DevPustaczekVaxtifyTabCreateEmpty};
+use crate::webext::dbus::{
+	DevPustaczekVaxtify, DevPustaczekVaxtifyTabClose, DevPustaczekVaxtifyTabCreateEmpty, DevPustaczekVaxtifyTabRefresh,
+};
 use crate::webext::message::{deserialize_event, serialize_command, Command, Event};
 use crate::webext::protocol;
 use dbus::blocking::LocalConnection;
@@ -45,6 +47,15 @@ fn spawn_signals_to_commands() {
 					protocol::write(&serialize_command(Command::CreateEmpty {}), &mut stdout).unwrap();
 					stdout.flush().unwrap();
 				}
+				true
+			})
+			.unwrap();
+		proxy
+			.match_signal(move |_: DevPustaczekVaxtifyTabRefresh, _: &LocalConnection, _: &Message| {
+				let stdout = std::io::stdout();
+				let mut stdout = stdout.lock();
+				protocol::write(&serialize_command(Command::Refresh {}), &mut stdout).unwrap();
+				stdout.flush().unwrap();
 				true
 			})
 			.unwrap();

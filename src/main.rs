@@ -75,6 +75,9 @@ fn run_daemon() {
 	let event_queue = mpsc::channel();
 	let dbus = DBus::new(event_queue.0);
 
+	// Ask all connected browser to send all the tabs after a restart.
+	dbus.refresh();
+
 	let lookups = lookups::Lookups::new(&config);
 	let mut tabs = tabs::Tabs::new(&lookups);
 	let mut rules = RuleManager::new(&lookups);

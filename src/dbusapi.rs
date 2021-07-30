@@ -19,6 +19,7 @@ use std::time::Duration;
 enum Command {
 	TabClose { pid: u32, tab: i32 },
 	TabCreateEmpty { pid: u32 },
+	Refresh {},
 }
 
 pub struct DBus {
@@ -29,6 +30,7 @@ struct TreeInfo {
 	tree: Tree<MTFn, ()>,
 	signal_close: Arc<Signal<()>>,
 	signal_create_empty: Arc<Signal<()>>,
+	signal_refresh: Arc<Signal<()>>,
 }
 
 impl DBus {
@@ -48,6 +50,7 @@ impl DBus {
 					let msg = match command {
 						Command::TabClose { pid, tab } => info.signal_close.msg(&path, &iface).append2(pid, tab),
 						Command::TabCreateEmpty { pid } => info.signal_create_empty.msg(&path, &iface).append1(pid),
+						Command::Refresh {} => info.signal_refresh.msg(&path, &iface),
 					};
 					conn.send(msg).unwrap();
 				}
@@ -63,6 +66,10 @@ impl DBus {
 	pub fn tab_create_empty(&self, pid: u32) {
 		self.command_tx.send(Command::TabCreateEmpty { pid }).unwrap();
 	}
+
+	pub fn refresh(&self) {
+		self.command_tx.send(Command::Refresh {}).unwrap();
+	}
 }
 
 fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
@@ -75,11 +82,13 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 	let f = dbus_tree::Factory::new_fn::<()>();
 	let signal_close = Arc::new(f.signal("TabClose", ()).sarg::<u32, _>("pid").sarg::<i32, _>("tab"));
 	let signal_create_empty = Arc::new(f.signal("TabCreateEmpty", ()).sarg::<u32, _>("pid"));
+	let signal_refresh = Arc::new(f.signal("TabRefresh", ()));
 	let tree = f.tree(()).add(
 		f.object_path("/", ()).introspectable().add(
 			f.interface("dev.pustaczek.Vaxtify", ())
 				.add_s(signal_close.clone())
 				.add_s(signal_create_empty.clone())
+				.add_s(signal_refresh.clone())
 				.add_m(
 					f.method("PermitStart", (), move |m| {
 						let name = m.msg.read1()?;
@@ -148,7 +157,7 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 				),
 		),
 	);
-	TreeInfo { tree, signal_close, signal_create_empty }
+	TreeInfo { tree, signal_close, signal_create_empty, signal_refresh }
 }
 
 fn dbus_wait(

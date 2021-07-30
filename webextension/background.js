@@ -21,15 +21,16 @@ function on_updated(tabId, url) {
     });
 }
 
+async function refresh() {
+    let tabs = await browser.tabs.query({});
+    for (let tab of tabs)
+        on_updated(tab.id, tab.url);
+}
+
 browser.tabs.onRemoved.addListener((tabId, removeInfo) => on_removed(tabId));
 browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.url !== undefined)
         on_updated(tabId, changeInfo.url)
-});
-
-browser.tabs.query({}).then(tabs => {
-    for (let tab of tabs)
-        on_updated(tab.id, tab.url);
 });
 
 port.onMessage.addListener(command => {
@@ -37,4 +38,10 @@ port.onMessage.addListener(command => {
         browser.tabs.remove(command.tab);
     else if (command.kind === "CreateEmpty")
         browser.tabs.create({});
+    else if (command.kind === "Refresh")
+        refresh();
+    else
+        console.warn('unexpected message from vaxtify webext proxy', command);
 });
+
+refresh();

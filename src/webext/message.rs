@@ -13,6 +13,7 @@ pub enum Event {
 pub enum Command {
 	Close { tab: i32 },
 	CreateEmpty {},
+	Refresh {},
 }
 
 pub fn deserialize_event(raw: &[u8]) -> Event {
