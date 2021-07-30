@@ -78,6 +78,7 @@ fn run_daemon() {
 	// Ask all connected browser to send all the tabs after a restart.
 	dbus.refresh();
 
+	let restart_time = Local::now();
 	let lookups = lookups::Lookups::new(&config);
 	let mut tabs = tabs::Tabs::new(&lookups);
 	let mut rules = RuleManager::new(&lookups);
@@ -96,7 +97,7 @@ fn run_daemon() {
 		if let Some(event) = event {
 			match event {
 				Event::PermitRequest { name, duration, err_tx } => {
-					err_tx.send(permits.activate(&name, duration, &now)).unwrap();
+					err_tx.send(permits.activate(&name, duration, &now, &restart_time)).unwrap();
 					permits.reload(&now);
 					tabs.rescan(rules.blocked(), permits.unblocked(), &dbus, &now);
 					when_reload = compute_when_reload(&rules, &permits, &now);

@@ -177,6 +177,7 @@ fn dbus_wait(
 				PermitError::DurationNotSpecified => "duration is not specified",
 				PermitError::CooldownNotFinished => "cooldown is not finished",
 				PermitError::AvailableBadTime => "permit is not available during this time of day",
+				PermitError::CooldownAfterRestart => "cooldown after restart is not finished",
 			};
 			Err(dbus::Error::new_custom("dev.pustaczek.Vaxtify.Error", message).into())
 		}

@@ -1,4 +1,5 @@
 use crate::config;
+use crate::config::Config;
 use crate::lookups::Lookups;
 use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;
@@ -13,6 +14,7 @@ pub enum PermitError {
 	DurationNotSpecified,
 	CooldownNotFinished,
 	AvailableBadTime,
+	CooldownAfterRestart,
 }
 
 pub struct PermitManager<'a> {
@@ -40,13 +42,20 @@ impl<'a> PermitManager<'a> {
 		&self.unblocked
 	}
 
-	pub fn activate(&mut self, name: &str, duration: Option<Duration>, now: &DateTime<Local>) -> PermitResult {
+	pub fn activate(
+		&mut self,
+		name: &str,
+		duration: Option<Duration>,
+		now: &DateTime<Local>,
+		restart_time: &DateTime<Local>,
+	) -> PermitResult {
 		let id = *self.lookups.permit.id.get(name).ok_or(PermitError::PermitDoesNotExist)?;
 		let details = self.lookups.permit.details[id];
 		let state = &mut self.state[id];
 		let duration = duration.or(details.length.default).ok_or(PermitError::DurationNotSpecified)?;
 		check_duration(duration, details)?;
 		check_cooldown(now, state, details)?;
+		check_restart_cooldown(now, restart_time, self.lookups.config)?;
 		check_available(now, details)?;
 		state.last_active = Some(*now);
 		state.expires = Some(*now + chrono::Duration::from_std(duration).unwrap());
@@ -99,6 +108,13 @@ fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::
 		(Some(last_active), Some(cooldown)) if last_active + chrono::Duration::from_std(cooldown).unwrap() > *now => {
 			Err(PermitError::CooldownNotFinished)
 		}
+		_ => Ok(()),
+	}
+}
+
+fn check_restart_cooldown(now: &DateTime<Local>, restart_time: &DateTime<Local>, config: &Config) -> PermitResult {
+	match config.general.permit_cooldown_after_restart {
+		Some(cooldown) if (*now - *restart_time).to_std().unwrap() < cooldown => Err(PermitError::CooldownAfterRestart),
 		_ => Ok(()),
 	}
 }
