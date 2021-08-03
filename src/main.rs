@@ -81,7 +81,7 @@ fn run_daemon() {
 	let restart_time = Local::now();
 	let lookups = lookups::Lookups::new(&config);
 	let mut tabs = tabs::Tabs::new(&lookups);
-	let mut rules = RuleManager::new(&lookups);
+	let mut rules = RuleManager::new(&lookups, &restart_time);
 	let mut permits = PermitManager::new(&lookups);
 
 	let initial_now = Local::now();

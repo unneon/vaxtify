@@ -14,6 +14,8 @@ pub struct General {
 	pub close_all_after_block: Option<Duration>,
 	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
 	pub permit_cooldown_after_restart: Option<Duration>,
+	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
+	pub rule_cooldown_after_restart: Option<Duration>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,6 +137,7 @@ prevent_browser_close = false
 close_all_on_block = true
 close_all_after_block = { mins = 5 }
 permit_cooldown_after_restart = { hours = 1 }
+rule_cooldown_after_restart = { hours = 1 }
 
 [category.example]
 domains = ["example.com"]
@@ -167,6 +170,7 @@ categories = ["other"]
 	assert_eq!(config.general.close_all_on_block, true);
 	assert_eq!(config.general.close_all_after_block, Some(Duration::from_secs(5 * 60)));
 	assert_eq!(config.general.permit_cooldown_after_restart, Some(Duration::from_secs(1 * 60 * 60)));
+	assert_eq!(config.general.rule_cooldown_after_restart, Some(Duration::from_secs(1 * 60 * 60)));
 	assert_eq!(config.category.len(), 2);
 	assert_eq!(config.category["example"].domains, ["example.com"]);
 	assert_eq!(config.category["example"].subreddits, ["all"]);
