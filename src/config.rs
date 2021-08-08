@@ -16,6 +16,8 @@ pub struct General {
 	pub permit_cooldown_after_restart: Option<Duration>,
 	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
 	pub rule_cooldown_after_restart: Option<Duration>,
+	#[serde(default = "crate::processes::default_scan_each", deserialize_with = "serde_duration::deserialize")]
+	pub processes_scan_each: Duration,
 }
 
 #[derive(Debug, Deserialize)]
@@ -138,6 +140,7 @@ close_all_on_block = true
 close_all_after_block = { mins = 5 }
 permit_cooldown_after_restart = { hours = 1 }
 rule_cooldown_after_restart = { hours = 1 }
+processes_scan_each = { seconds = 10 }
 
 [category.example]
 domains = ["example.com"]
@@ -171,6 +174,7 @@ categories = ["other"]
 	assert_eq!(config.general.close_all_after_block, Some(Duration::from_secs(5 * 60)));
 	assert_eq!(config.general.permit_cooldown_after_restart, Some(Duration::from_secs(1 * 60 * 60)));
 	assert_eq!(config.general.rule_cooldown_after_restart, Some(Duration::from_secs(1 * 60 * 60)));
+	assert_eq!(config.general.processes_scan_each, Duration::from_secs(10));
 	assert_eq!(config.category.len(), 2);
 	assert_eq!(config.category["example"].domains, ["example.com"]);
 	assert_eq!(config.category["example"].subreddits, ["all"]);
