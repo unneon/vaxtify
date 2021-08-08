@@ -79,6 +79,8 @@ fn run_daemon(
 	let initial_now = Local::now();
 	rules.reload(&initial_now);
 	permits.reload(&initial_now);
+	tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &initial_now);
+	processes.rescan(rules.blocked(), permits.unblocked(), &initial_now);
 	let mut when_reload = compute_when_reload(&rules, &permits, &processes, &initial_now);
 
 	loop {
