@@ -5,3 +5,4 @@ Description=Vaxtify, distraction manager for the stubborn
 Type=dbus
 BusName=dev.pustaczek.Vaxtify
 ExecStart=/usr/bin/vaxtify daemon
+ExecReload=busctl --user call dev.pustaczek.Vaxtify / dev.pustaczek.Vaxtify ServiceReload

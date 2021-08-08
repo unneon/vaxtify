@@ -1,4 +1,3 @@
-use crate::permits::{PermitError, PermitResult};
 use crate::tabs::TabId;
 use crate::Event;
 use dbus::blocking::stdintf::org_freedesktop_dbus::RequestNameReply;
@@ -79,6 +78,7 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 	let event_tx4 = event_tx1.clone();
 	let event_tx5 = event_tx1.clone();
 	let event_tx6 = event_tx1.clone();
+	let event_tx7 = event_tx1.clone();
 	let f = dbus_tree::Factory::new_fn::<()>();
 	let signal_close = Arc::new(f.signal("TabClose", ()).sarg::<u32, _>("pid").sarg::<i32, _>("tab"));
 	let signal_create_empty = Arc::new(f.signal("TabCreateEmpty", ()).sarg::<u32, _>("pid"));
@@ -89,6 +89,11 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 				.add_s(signal_close.clone())
 				.add_s(signal_create_empty.clone())
 				.add_s(signal_refresh.clone())
+				.add_m(f.method("ServiceReload", (), move |m| {
+					let (err_tx, err_rx) = mpsc::sync_channel(0);
+					let event = Event::ServiceReload { err_tx };
+					dbus_wait(m, &event_tx7, event, err_rx)
+				}))
 				.add_m(
 					f.method("PermitStart", (), move |m| {
 						let name = m.msg.read1()?;
@@ -160,26 +165,15 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 	TreeInfo { tree, signal_close, signal_create_empty, signal_refresh }
 }
 
-fn dbus_wait(
+fn dbus_wait<E: std::error::Error>(
 	m: &MethodInfo<MTFn, ()>,
 	event_tx: &mpsc::Sender<Event>,
 	event: Event,
-	err_rx: mpsc::Receiver<PermitResult>,
+	err_rx: mpsc::Receiver<Result<(), E>>,
 ) -> dbus_tree::MethodResult {
 	event_tx.send(event).unwrap();
 	match err_rx.recv().unwrap() {
 		Ok(()) => Ok(vec![m.msg.method_return()]),
-		Err(err) => {
-			let message = match err {
-				PermitError::PermitDoesNotExist => "permit does not exist",
-				PermitError::PermitIsNotActive => "permit is not active",
-				PermitError::DurationTooLong => "duration is too long",
-				PermitError::DurationNotSpecified => "duration is not specified",
-				PermitError::CooldownNotFinished => "cooldown is not finished",
-				PermitError::AvailableBadTime => "permit is not available during this time of day",
-				PermitError::CooldownAfterRestart => "cooldown after restart is not finished",
-			};
-			Err(dbus::Error::new_custom("dev.pustaczek.Vaxtify.Error", message).into())
-		}
+		Err(err) => Err(dbus::Error::new_custom("dev.pustaczek.Vaxtify.Error", err.to_string().as_str()).into()),
 	}
 }

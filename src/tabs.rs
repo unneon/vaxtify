@@ -16,7 +16,14 @@ pub struct Tabs<'a> {
 	lookups: &'a Lookups<'a>,
 	tabs: HashMap<TabId, TabState>,
 	alive: HashSet<TabId>,
-	block_all_until: DateTime<Local>,
+	block_all_until: Option<DateTime<Local>>,
+}
+
+#[derive(Default)]
+pub struct TabsSaveState {
+	tabs: HashMap<TabId, Url>,
+	alive: HashSet<TabId>,
+	block_all_until: Option<DateTime<Local>>,
 }
 
 struct TabState {
@@ -25,12 +32,16 @@ struct TabState {
 }
 
 impl<'a> Tabs<'a> {
-	pub fn new(lookups: &'a Lookups<'a>) -> Tabs<'a> {
+	pub fn new(lookups: &'a Lookups<'a>, save_state: TabsSaveState) -> Tabs<'a> {
 		Tabs {
 			lookups,
-			tabs: HashMap::new(),
-			alive: HashSet::new(),
-			block_all_until: Local::now() - chrono::Duration::seconds(1),
+			tabs: save_state
+				.tabs
+				.into_iter()
+				.map(|(id, url)| (id, TabState { mask: lookups.url_to_mask(&url), url }))
+				.collect(),
+			alive: save_state.alive,
+			block_all_until: save_state.block_all_until,
 		}
 	}
 
@@ -44,7 +55,7 @@ impl<'a> Tabs<'a> {
 		now: &DateTime<Local>,
 	) {
 		let mask = self.lookups.url_to_mask(&url);
-		let should_close = *now <= self.block_all_until || should_block_mask(&mask, blocked, unblocked);
+		let should_close = self.should_block_all(now) || should_block_mask(&mask, blocked, unblocked);
 		let state = TabState { mask, url };
 		if self.tabs.insert(tab, state).is_none() {
 			self.alive.insert(tab);
@@ -52,6 +63,10 @@ impl<'a> Tabs<'a> {
 		if should_close {
 			self.close(tab, dbus, now);
 		}
+	}
+
+	fn should_block_all(&self, now: &DateTime<Local>) -> bool {
+		self.block_all_until.map_or(false, |block_all_until| *now <= block_all_until)
 	}
 
 	pub fn remove(&mut self, tab: TabId) {
@@ -81,7 +96,7 @@ impl<'a> Tabs<'a> {
 		debug!("Tab blocked on {}.", self.tabs[&tab].url);
 		let is_last = self.alive.remove(&tab) && self.alive.is_empty();
 		if let Some(close_all_after_block) = self.lookups.config.general.close_all_after_block {
-			self.block_all_until = *now + chrono::Duration::from_std(close_all_after_block).unwrap();
+			self.block_all_until = Some(*now + chrono::Duration::from_std(close_all_after_block).unwrap());
 		}
 		if is_last && self.lookups.config.general.prevent_browser_close {
 			dbus.tab_create_empty(tab.pid);
@@ -91,6 +106,14 @@ impl<'a> Tabs<'a> {
 			if let Some(other_alive) = self.alive.iter().next().copied() {
 				self.close(other_alive, dbus, now);
 			}
+		}
+	}
+
+	pub fn save_state(self) -> TabsSaveState {
+		TabsSaveState {
+			tabs: self.tabs.into_iter().map(|(id, state)| (id, state.url)).collect(),
+			alive: self.alive,
+			block_all_until: self.block_all_until,
 		}
 	}
 }

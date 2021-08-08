@@ -77,18 +77,34 @@ pub struct Config {
 	pub permit: HashMap<String, Permit>,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum ConfigError {
+	#[error("config parse error")]
+	ParseError(#[from] toml::de::Error),
+	#[error("config validation failed ({details})")]
+	ValidationFailure { details: &'static str },
+}
+
 impl Config {
-	pub fn load() -> Config {
+	pub fn load() -> Result<Config, ConfigError> {
 		let path = dirs::config_dir().unwrap().join("vaxtify.toml");
 		let file = std::fs::read_to_string(path).unwrap();
-		let config = Config::parse(&file);
-		assert!(!config.general.prevent_browser_close || !config.general.close_all_on_block);
-		assert!(config.general.close_all_on_block || config.general.close_all_after_block.is_none());
-		config
+		Config::parse(&file)
 	}
 
-	pub fn parse(file: &str) -> Config {
-		toml::from_str(file).unwrap()
+	pub fn parse(file: &str) -> Result<Config, ConfigError> {
+		let config: Config = toml::from_str(file)?;
+		if config.general.prevent_browser_close && config.general.close_all_on_block {
+			return Err(ConfigError::ValidationFailure {
+				details: "prevent_browser_close and close_all_on_block can't both be true",
+			});
+		}
+		if !config.general.close_all_on_block && config.general.close_all_after_block.is_some() {
+			return Err(ConfigError::ValidationFailure {
+				details: "close_all_after_block can't be set when close_all_on_block is false",
+			});
+		}
+		Ok(config)
 	}
 }
 
@@ -168,7 +184,7 @@ available.since = { hour = 20, min = 0 }
 available.until = { hour = 0, min = 0 }
 categories = ["other"]
 "#;
-	let config = Config::parse(text);
+	let config = Config::parse(text).unwrap();
 	assert_eq!(config.general.prevent_browser_close, false);
 	assert_eq!(config.general.close_all_on_block, true);
 	assert_eq!(config.general.close_all_after_block, Some(Duration::from_secs(5 * 60)));

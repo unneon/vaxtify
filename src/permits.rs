@@ -4,16 +4,24 @@ use crate::lookups::Lookups;
 use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;
 use log::info;
+use std::collections::HashMap;
 use std::time::Duration;
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum PermitError {
+	#[error("permit does not exist")]
 	PermitDoesNotExist,
+	#[error("permit is not active")]
 	PermitIsNotActive,
+	#[error("duration is too long")]
 	DurationTooLong,
+	#[error("duration is not specified")]
 	DurationNotSpecified,
+	#[error("cooldown is not finished")]
 	CooldownNotFinished,
+	#[error("permit is not available during this time of day")]
 	AvailableBadTime,
+	#[error("cooldown after restart is not finished")]
 	CooldownAfterRestart,
 }
 
@@ -21,6 +29,11 @@ pub struct PermitManager<'a> {
 	lookups: &'a Lookups<'a>,
 	unblocked: FixedBitSet,
 	state: Vec<PermitState>,
+}
+
+#[derive(Default)]
+pub struct PermitSaveState {
+	state: HashMap<String, PermitState>,
 }
 
 #[derive(Clone)]
@@ -32,9 +45,22 @@ struct PermitState {
 pub type PermitResult = Result<(), PermitError>;
 
 impl<'a> PermitManager<'a> {
-	pub fn new(lookups: &'a Lookups<'a>) -> Self {
-		let unblocked = FixedBitSet::with_capacity(lookups.category.len());
-		let state = vec![PermitState { expires: None, last_active: None }; lookups.permit.len()];
+	pub fn new(lookups: &'a Lookups<'a>, save_state: PermitSaveState) -> Self {
+		let mut unblocked = FixedBitSet::with_capacity(lookups.category.len());
+		unblocked.extend(
+			save_state
+				.state
+				.iter()
+				.filter(|(_, state)| state.expires.is_some())
+				.filter_map(|(name, _)| lookups.permit.id.get(name.as_str()))
+				.copied(),
+		);
+		let mut state = vec![PermitState { expires: None, last_active: None }; lookups.permit.len()];
+		for (permit_name, permit_state) in save_state.state {
+			if let Some(permit_index) = lookups.permit.id.get(permit_name.as_str()) {
+				state[*permit_index] = permit_state;
+			}
+		}
 		PermitManager { lookups, unblocked, state }
 	}
 
@@ -93,6 +119,12 @@ impl<'a> PermitManager<'a> {
 
 	pub fn when_reload(&self) -> Option<DateTime<Local>> {
 		self.state.iter().filter_map(|state| state.expires).min()
+	}
+
+	pub fn save_state(self) -> PermitSaveState {
+		PermitSaveState {
+			state: self.lookups.permit.name.iter().copied().map(str::to_owned).zip(self.state.into_iter()).collect(),
+		}
 	}
 }
 
