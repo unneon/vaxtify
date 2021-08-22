@@ -12,10 +12,6 @@ pub struct General {
 	pub close_all_on_block: bool,
 	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
 	pub close_all_after_block: Option<Duration>,
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub permit_cooldown_after_restart: Option<Duration>,
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub rule_cooldown_after_restart: Option<Duration>,
 	#[serde(default = "crate::processes::default_scan_each", deserialize_with = "serde_duration::deserialize")]
 	pub processes_scan_each: Duration,
 }
@@ -68,6 +64,27 @@ pub struct Permit {
 	pub categories: Vec<String>,
 }
 
+#[derive(Debug, Default, Deserialize)]
+pub struct AfterBlock {
+	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
+	pub rules: Option<Duration>,
+	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
+	pub permits: Option<Duration>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct After {
+	pub block: AfterBlock,
+}
+
+#[derive(Debug, Default, Deserialize)]
+pub struct AfterEvents {
+	#[serde(default)]
+	pub restart: After,
+	#[serde(default)]
+	pub reload: After,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Config {
 	pub general: General,
@@ -75,6 +92,8 @@ pub struct Config {
 	pub rule: HashMap<String, Rule>,
 	#[serde(default)]
 	pub permit: HashMap<String, Permit>,
+	#[serde(default)]
+	pub after: AfterEvents,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -183,13 +202,14 @@ cooldown = { hours = 20 }
 available.since = { hour = 20, min = 0 }
 available.until = { hour = 0, min = 0 }
 categories = ["other"]
+
+[after.restart]
+block.permits = { mins = 15 }
 "#;
 	let config = Config::parse(text).unwrap();
 	assert_eq!(config.general.prevent_browser_close, false);
 	assert_eq!(config.general.close_all_on_block, true);
 	assert_eq!(config.general.close_all_after_block, Some(Duration::from_secs(5 * 60)));
-	assert_eq!(config.general.permit_cooldown_after_restart, Some(Duration::from_secs(1 * 60 * 60)));
-	assert_eq!(config.general.rule_cooldown_after_restart, Some(Duration::from_secs(1 * 60 * 60)));
 	assert_eq!(config.general.processes_scan_each, Duration::from_secs(10));
 	assert_eq!(config.category.len(), 2);
 	assert_eq!(config.category["example"].domains, ["example.com"]);
@@ -215,4 +235,5 @@ categories = ["other"]
 		Some(TimeRange { since: NaiveTime::from_hms(20, 0, 0), until: NaiveTime::from_hms(0, 0, 0) })
 	);
 	assert_eq!(config.permit["example"].categories, ["other"]);
+	assert_eq!(config.after.restart.block.permits, Some(Duration::from_secs(15 * 60)));
 }

@@ -35,8 +35,6 @@ Optionally, you can set how long they will last by default, how long they can la
 [general]
 prevent_browser_close = false
 close_all_on_block = false
-# close_all_after_block = { mins = 5 } # If close_all_on_block is true.
-# permit_cooldown_after_restart = { mins = 30 } # Uncomment line to enable.
 
 # Define a new category, called "memes". Pay attention whether URLs include www
 # or not. Subreddits are case insensitive. Each line can be omitted if empty.

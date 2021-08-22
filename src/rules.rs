@@ -9,13 +9,23 @@ pub struct RuleManager<'a> {
 	state: Vec<bool>,
 	restart_time: &'a DateTime<Local>,
 	restart_completed: bool,
+	reload_time: &'a DateTime<Local>,
+	reload_completed: bool,
 }
 
 impl<'a> RuleManager<'a> {
-	pub fn new(lookups: &'a Lookups<'a>, restart_time: &'a DateTime<Local>) -> Self {
+	pub fn new(lookups: &'a Lookups<'a>, restart_time: &'a DateTime<Local>, reload_time: &'a DateTime<Local>) -> Self {
 		let blocked = FixedBitSet::with_capacity(lookups.category.len());
 		let last_state = vec![false; lookups.config.rule.len()];
-		RuleManager { lookups, blocked, state: last_state, restart_time, restart_completed: false }
+		RuleManager {
+			lookups,
+			blocked,
+			state: last_state,
+			restart_time,
+			restart_completed: false,
+			reload_time,
+			reload_completed: false,
+		}
 	}
 
 	pub fn blocked(&self) -> &FixedBitSet {
@@ -27,8 +37,11 @@ impl<'a> RuleManager<'a> {
 		if self.when_reload_after_restart_cooldown().map_or(true, |when| when <= *now) {
 			self.restart_completed = true;
 		}
+		if self.when_reload_after_reload_cooldown().map_or(true, |when| when <= *now) {
+			self.reload_completed = true;
+		}
 		for (index, (name, rule)) in self.lookups.config.rule.iter().enumerate() {
-			let is_active = rule.is_active(now) || !self.restart_completed;
+			let is_active = rule.is_active(now) || !self.restart_completed || !self.reload_completed;
 			if is_active != self.state[index] {
 				self.state[index] = is_active;
 				info!("Rule {:?} {} according to schedule.", name, if is_active { "activated" } else { "deactivated" },);
@@ -53,6 +66,7 @@ impl<'a> RuleManager<'a> {
 			.values()
 			.filter_map(|rule| rule.next_change_time(now))
 			.chain(self.when_reload_after_restart_cooldown())
+			.chain(self.when_reload_after_reload_cooldown())
 			.min()
 	}
 
@@ -62,9 +76,25 @@ impl<'a> RuleManager<'a> {
 		} else {
 			self.lookups
 				.config
-				.general
-				.rule_cooldown_after_restart
+				.after
+				.restart
+				.block
+				.rules
 				.map(|cooldown| *self.restart_time + chrono::Duration::from_std(cooldown).unwrap())
+		}
+	}
+
+	fn when_reload_after_reload_cooldown(&self) -> Option<DateTime<Local>> {
+		if self.reload_completed {
+			None
+		} else {
+			self.lookups
+				.config
+				.after
+				.reload
+				.block
+				.rules
+				.map(|cooldown| *self.reload_time + chrono::Duration::from_std(cooldown).unwrap())
 		}
 	}
 }

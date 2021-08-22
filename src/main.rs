@@ -69,19 +69,19 @@ fn run_daemon(
 	dbus: &DBus,
 	event_queue: &mpsc::Receiver<Event>,
 ) -> SaveState {
+	let reload_time = Local::now();
 	let config = save_state.config;
 	let lookups = lookups::Lookups::new(&config);
 	let mut tabs = tabs::Tabs::new(&lookups, save_state.tabs);
 	let mut processes = Processes::new(&lookups);
-	let mut rules = RuleManager::new(&lookups, &restart_time);
+	let mut rules = RuleManager::new(&lookups, &restart_time, &reload_time);
 	let mut permits = PermitManager::new(&lookups, save_state.permits);
 
-	let initial_now = Local::now();
-	rules.reload(&initial_now);
-	permits.reload(&initial_now);
-	tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &initial_now);
-	processes.rescan(rules.blocked(), permits.unblocked(), &initial_now);
-	let mut when_reload = compute_when_reload(&rules, &permits, &processes, &initial_now);
+	rules.reload(&reload_time);
+	permits.reload(&reload_time);
+	tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &reload_time);
+	processes.rescan(rules.blocked(), permits.unblocked(), &reload_time);
+	let mut when_reload = compute_when_reload(&rules, &permits, &processes, &reload_time);
 
 	loop {
 		let timeout = when_reload.and_then(|when| (when - Local::now()).to_std().ok());

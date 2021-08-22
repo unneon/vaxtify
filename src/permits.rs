@@ -84,6 +84,7 @@ impl<'a> PermitManager<'a> {
 		check_duration(duration, name, details)?;
 		check_cooldown(now, state, details)?;
 		check_restart_cooldown(now, restart_time, self.lookups.config)?;
+		check_reload_cooldown(now, restart_time, self.lookups.config)?;
 		check_available(now, details)?;
 		state.last_active = Some(*now);
 		state.expires = Some(*now + chrono::Duration::from_std(duration).unwrap());
@@ -163,7 +164,16 @@ fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::
 }
 
 fn check_restart_cooldown(now: &DateTime<Local>, restart_time: &DateTime<Local>, config: &Config) -> PermitResult {
-	match config.general.permit_cooldown_after_restart {
+	match config.after.restart.block.permits {
+		Some(cooldown) if (*now - *restart_time).to_std().unwrap() < cooldown => {
+			Err(PermitError::CooldownAfterRestart { left: cooldown - (*now - *restart_time).to_std().unwrap() })
+		}
+		_ => Ok(()),
+	}
+}
+
+fn check_reload_cooldown(now: &DateTime<Local>, restart_time: &DateTime<Local>, config: &Config) -> PermitResult {
+	match config.after.reload.block.permits {
 		Some(cooldown) if (*now - *restart_time).to_std().unwrap() < cooldown => {
 			Err(PermitError::CooldownAfterRestart { left: cooldown - (*now - *restart_time).to_std().unwrap() })
 		}
