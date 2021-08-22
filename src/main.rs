@@ -1,6 +1,6 @@
 mod cli;
 mod config;
-mod dbusapi;
+mod dbus;
 mod filters;
 mod logger;
 mod lookups;
@@ -11,7 +11,7 @@ mod tabs;
 mod webext;
 
 use crate::config::{Config, ConfigError};
-use crate::dbusapi::DBus;
+use crate::dbus::server::DBus;
 use crate::permits::{PermitResult, PermitSaveState};
 use crate::processes::Processes;
 use crate::tabs::{TabId, TabsSaveState};

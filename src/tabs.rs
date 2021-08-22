@@ -1,4 +1,4 @@
-use crate::dbusapi::DBus;
+use crate::dbus::server::DBus;
 use crate::lookups::Lookups;
 use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;

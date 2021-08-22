@@ -13,7 +13,7 @@ pub trait DevPustaczekVaxtify {
 	fn permit_start_with_duration(&self, permit: &str, duration: u64) -> Result<(), dbus::Error>;
 }
 
-impl<'a, T: blocking::BlockingSender, C: ::std::ops::Deref<Target = T>> DevPustaczekVaxtify for blocking::Proxy<'a, C> {
+impl<'a, T: blocking::BlockingSender, C: std::ops::Deref<Target = T>> DevPustaczekVaxtify for blocking::Proxy<'a, C> {
 	fn browser_register(&self, pid: u32) -> Result<(), dbus::Error> {
 		self.method_call("dev.pustaczek.Vaxtify", "BrowserRegister", (pid,))
 	}
@@ -111,7 +111,7 @@ pub trait OrgFreedesktopDBusIntrospectable {
 	fn introspect(&self) -> Result<String, dbus::Error>;
 }
 
-impl<'a, T: blocking::BlockingSender, C: ::std::ops::Deref<Target = T>> OrgFreedesktopDBusIntrospectable
+impl<'a, T: blocking::BlockingSender, C: std::ops::Deref<Target = T>> OrgFreedesktopDBusIntrospectable
 	for blocking::Proxy<'a, C>
 {
 	fn introspect(&self) -> Result<String, dbus::Error> {

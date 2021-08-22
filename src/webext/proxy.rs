@@ -1,4 +1,4 @@
-use crate::webext::dbus::{
+use crate::dbus::client::{
 	DevPustaczekVaxtify, DevPustaczekVaxtifyTabClose, DevPustaczekVaxtifyTabCreateEmpty, DevPustaczekVaxtifyTabRefresh,
 };
 use crate::webext::message::{deserialize_event, serialize_command, Command, Event};
