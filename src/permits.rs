@@ -3,7 +3,6 @@ use crate::config::Config;
 use crate::lookups::Lookups;
 use chrono::{DateTime, Local, NaiveTime};
 use fixedbitset::FixedBitSet;
-use log::info;
 use std::collections::HashMap;
 use std::time::Duration;
 
@@ -80,7 +79,6 @@ impl<'a> PermitManager<'a> {
 		check_available(now, details)?;
 		state.last_active = Some(*now);
 		state.expires = Some(*now + chrono::Duration::from_std(details.length).unwrap());
-		info!("Permit {:?} activated on request.", name);
 		Ok(())
 	}
 
@@ -89,19 +87,16 @@ impl<'a> PermitManager<'a> {
 		let state = &mut self.state[id];
 		check_active(state)?;
 		state.expires = None;
-		info!("Permit {:?} deactivated on request.", name);
 		Ok(())
 	}
 
 	pub fn reload(&mut self, now: &DateTime<Local>) {
 		self.unblocked.clear();
 		for (per_id, state) in self.state.iter_mut().enumerate() {
-			let name = self.lookups.permit.name[per_id];
 			let details = self.lookups.permit.details[per_id];
 			if let Some(expires) = state.expires {
 				if expires <= *now {
 					state.expires = None;
-					info!("Permit {:?} deactivated after using allotted time.", name);
 				}
 			}
 			if state.expires.is_some() {

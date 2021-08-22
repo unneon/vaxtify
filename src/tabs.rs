@@ -2,7 +2,6 @@ use crate::dbus::server::DBus;
 use crate::lookups::Lookups;
 use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;
-use log::debug;
 use std::collections::{HashMap, HashSet};
 use url::Url;
 
@@ -93,7 +92,6 @@ impl<'a> Tabs<'a> {
 	}
 
 	pub fn close(&mut self, tab: TabId, dbus: &DBus, now: &DateTime<Local>) {
-		debug!("Tab blocked on {}.", self.tabs[&tab].url);
 		let is_last = self.alive.remove(&tab) && self.alive.is_empty();
 		if let Some(close_all_after_block) = self.lookups.config.general.close_all_after_block {
 			self.block_all_until = Some(*now + chrono::Duration::from_std(close_all_after_block).unwrap());

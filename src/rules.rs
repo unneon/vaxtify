@@ -1,7 +1,6 @@
 use crate::lookups::Lookups;
 use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;
-use log::info;
 
 pub struct RuleManager<'a> {
 	lookups: &'a Lookups<'a>,
@@ -40,11 +39,10 @@ impl<'a> RuleManager<'a> {
 		if self.when_reload_after_reload_cooldown().map_or(true, |when| when <= *now) {
 			self.reload_completed = true;
 		}
-		for (index, (name, rule)) in self.lookups.config.rule.iter().enumerate() {
+		for (index, rule) in self.lookups.config.rule.values().enumerate() {
 			let is_active = rule.is_active(now) || !self.restart_completed || !self.reload_completed;
 			if is_active != self.state[index] {
 				self.state[index] = is_active;
-				info!("Rule {:?} {} according to schedule.", name, if is_active { "activated" } else { "deactivated" },);
 			}
 			if is_active {
 				for category in &rule.categories {

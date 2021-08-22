@@ -6,7 +6,6 @@ use dbus::channel::Sender;
 use dbus::strings::Interface;
 use dbus::Path;
 use dbus_tree::{MTFn, MethodInfo, Signal, Tree};
-use log::debug;
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
 // TODO: Figure out a better way of communicating between these threads?
@@ -113,8 +112,7 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 				)
 				.add_m(
 					f.method("BrowserRegister", (), move |m| {
-						let pid: u32 = m.msg.read1()?;
-						debug!("Browser {} has been connected.", pid);
+						let _pid: u32 = m.msg.read1()?;
 						Ok(vec![m.msg.method_return()])
 					})
 					.inarg::<u32, _>("pid"),
@@ -142,7 +140,6 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 				.add_m(
 					f.method("BrowserUnregister", (), move |m| {
 						let pid = m.msg.read1()?;
-						debug!("Browser {} has been disconnected.", pid);
 						event_tx6.send(Event::TabDeleteAll { pid }).unwrap();
 						Ok(vec![m.msg.method_return()])
 					})
