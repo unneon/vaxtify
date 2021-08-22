@@ -165,7 +165,7 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 	TreeInfo { tree, signal_close, signal_create_empty, signal_refresh }
 }
 
-fn dbus_wait<E: std::error::Error>(
+fn dbus_wait<E: std::error::Error + 'static>(
 	m: &MethodInfo<MTFn, ()>,
 	event_tx: &mpsc::Sender<Event>,
 	event: Event,
@@ -174,6 +174,16 @@ fn dbus_wait<E: std::error::Error>(
 	event_tx.send(event).unwrap();
 	match err_rx.recv().unwrap() {
 		Ok(()) => Ok(vec![m.msg.method_return()]),
-		Err(err) => Err(dbus::Error::new_custom("dev.pustaczek.Vaxtify.Error", err.to_string().as_str()).into()),
+		Err(err) => Err(dbus::Error::new_custom("dev.pustaczek.Vaxtify.Error", format_error(&err).as_str()).into()),
 	}
+}
+
+fn format_error(mut error: &(dyn std::error::Error + 'static)) -> String {
+	let mut output = error.to_string();
+	while let Some(source) = error.source() {
+		output += " \x1B[1;33mcaused by\x1B[0m ";
+		output += &source.to_string();
+		error = source;
+	}
+	output
 }

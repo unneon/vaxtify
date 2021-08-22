@@ -13,6 +13,8 @@ pub enum PermitError {
 	PermitDoesNotExist { name: String },
 	#[error("permit is not active")]
 	PermitIsNotActive,
+	#[error("permit extension refused")]
+	PermitExtensionRefused(#[source] Box<PermitError>),
 	#[error("duration is too long (got: {got:?}, maximum: {maximum:?})")]
 	DurationTooLong { got: Duration, permit: String, maximum: Duration },
 	#[error("duration is not specified")]
@@ -149,7 +151,12 @@ fn check_duration(duration: Duration, permit_name: &str, details: &config::Permi
 fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::Permit) -> PermitResult {
 	match (state.last_active, details.cooldown) {
 		(Some(last_active), Some(cooldown)) if last_active + chrono::Duration::from_std(cooldown).unwrap() > *now => {
-			Err(PermitError::CooldownNotFinished { left: cooldown - (*now - last_active).to_std().unwrap() })
+			let error = PermitError::CooldownNotFinished { left: cooldown - (*now - last_active).to_std().unwrap() };
+			if state.expires.is_some() {
+				Err(PermitError::PermitExtensionRefused(Box::new(error)))
+			} else {
+				Err(error)
+			}
 		}
 		_ => Ok(()),
 	}
