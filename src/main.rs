@@ -25,7 +25,7 @@ use url::Url;
 
 #[derive(Debug)]
 pub enum Event {
-	PermitRequest { name: String, duration: Option<Duration>, err_tx: mpsc::SyncSender<PermitResult> },
+	PermitRequest { name: String, err_tx: mpsc::SyncSender<PermitResult> },
 	PermitEnd { name: String, err_tx: mpsc::SyncSender<PermitResult> },
 	TabUpdate { tab: TabId, url: Url },
 	TabDelete { tab: TabId },
@@ -90,8 +90,8 @@ fn run_daemon(
 
 		if let Some(event) = event {
 			match event {
-				Event::PermitRequest { name, duration, err_tx } => {
-					err_tx.send(permits.activate(&name, duration, &now, &restart_time)).unwrap();
+				Event::PermitRequest { name, err_tx } => {
+					err_tx.send(permits.activate(&name, &now, &restart_time)).unwrap();
 					permits.reload(&now);
 					tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &now);
 					processes.rescan(rules.blocked(), permits.unblocked(), &now);

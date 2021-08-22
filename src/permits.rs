@@ -70,24 +70,16 @@ impl<'a> PermitManager<'a> {
 		&self.unblocked
 	}
 
-	pub fn activate(
-		&mut self,
-		name: &str,
-		duration: Option<Duration>,
-		now: &DateTime<Local>,
-		restart_time: &DateTime<Local>,
-	) -> PermitResult {
+	pub fn activate(&mut self, name: &str, now: &DateTime<Local>, restart_time: &DateTime<Local>) -> PermitResult {
 		let id = self.get_permit(name)?;
 		let details = self.lookups.permit.details[id];
 		let state = &mut self.state[id];
-		let duration = duration.or(details.length.default).ok_or(PermitError::DurationNotSpecified)?;
-		check_duration(duration, name, details)?;
 		check_cooldown(now, state, details)?;
 		check_restart_cooldown(now, restart_time, self.lookups.config)?;
 		check_reload_cooldown(now, restart_time, self.lookups.config)?;
 		check_available(now, details)?;
 		state.last_active = Some(*now);
-		state.expires = Some(*now + chrono::Duration::from_std(duration).unwrap());
+		state.expires = Some(*now + chrono::Duration::from_std(details.length).unwrap());
 		info!("Permit {:?} activated on request.", name);
 		Ok(())
 	}
@@ -137,15 +129,6 @@ impl<'a> PermitManager<'a> {
 			.get(name)
 			.copied()
 			.ok_or_else(|| PermitError::PermitDoesNotExist { name: name.to_owned() })
-	}
-}
-
-fn check_duration(duration: Duration, permit_name: &str, details: &config::Permit) -> PermitResult {
-	match details.length.maximum {
-		Some(maximum) if duration > maximum => {
-			Err(PermitError::DurationTooLong { got: duration, permit: permit_name.to_owned(), maximum })
-		}
-		_ => Ok(()),
 	}
 }
 

@@ -73,7 +73,6 @@ impl DBus {
 
 fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 	let event_tx1 = event_tx;
-	let event_tx2 = event_tx1.clone();
 	let event_tx3 = event_tx1.clone();
 	let event_tx4 = event_tx1.clone();
 	let event_tx5 = event_tx1.clone();
@@ -98,21 +97,10 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 					f.method("PermitStart", (), move |m| {
 						let name = m.msg.read1()?;
 						let (err_tx, err_rx) = mpsc::sync_channel(0);
-						let event = Event::PermitRequest { name, duration: None, err_tx };
+						let event = Event::PermitRequest { name, err_tx };
 						dbus_wait(m, &event_tx1, event, err_rx)
 					})
 					.inarg::<&str, _>("permit"),
-				)
-				.add_m(
-					f.method("PermitStartWithDuration", (), move |m| {
-						let (name, duration) = m.msg.read2()?;
-						let duration = Some(Duration::from_secs(duration));
-						let (err_tx, err_rx) = mpsc::sync_channel(0);
-						let event = Event::PermitRequest { name, duration, err_tx };
-						dbus_wait(m, &event_tx2, event, err_rx)
-					})
-					.inarg::<&str, _>("permit")
-					.inarg::<u64, _>("duration"),
 				)
 				.add_m(
 					f.method("PermitEnd", (), move |m| {

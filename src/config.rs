@@ -45,18 +45,10 @@ pub struct Rule {
 	pub categories: Vec<String>,
 }
 
-#[derive(Debug, Default, Deserialize)]
-pub struct PermitLength {
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub default: Option<Duration>,
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub maximum: Option<Duration>,
-}
-
 #[derive(Debug, Deserialize)]
 pub struct Permit {
-	#[serde(default)]
-	pub length: PermitLength,
+	#[serde(default, deserialize_with = "serde_duration::deserialize")]
+	pub length: Duration,
 	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
 	pub cooldown: Option<Duration>,
 	#[serde(default)]
@@ -196,8 +188,7 @@ categories = ["example"]
 categories = ["other"]
 
 [permit.example]
-length.default = { mins = 30 }
-length.maximum = { mins = 40 }
+length = { mins = 30 }
 cooldown = { hours = 20 }
 available.since = { hour = 20, min = 0 }
 available.until = { hour = 0, min = 0 }
@@ -227,8 +218,7 @@ block.permits = { mins = 15 }
 	assert_eq!(config.rule["never"].allowed, None);
 	assert_eq!(config.rule["never"].categories, ["other"]);
 	assert_eq!(config.permit.len(), 1);
-	assert_eq!(config.permit["example"].length.default, Some(Duration::from_secs(30 * 60)));
-	assert_eq!(config.permit["example"].length.maximum, Some(Duration::from_secs(40 * 60)));
+	assert_eq!(config.permit["example"].length, Duration::from_secs(30 * 60));
 	assert_eq!(config.permit["example"].cooldown, Some(Duration::from_secs(20 * 60 * 60)));
 	assert_eq!(
 		config.permit["example"].available,
