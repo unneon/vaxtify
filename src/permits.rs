@@ -1,7 +1,7 @@
 use crate::config;
 use crate::config::Config;
 use crate::lookups::Lookups;
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, NaiveTime};
 use fixedbitset::FixedBitSet;
 use log::info;
 use std::collections::HashMap;
@@ -9,20 +9,20 @@ use std::time::Duration;
 
 #[derive(Debug, thiserror::Error)]
 pub enum PermitError {
-	#[error("permit does not exist")]
-	PermitDoesNotExist,
+	#[error("permit {name:?} does not exist")]
+	PermitDoesNotExist { name: String },
 	#[error("permit is not active")]
 	PermitIsNotActive,
-	#[error("duration is too long")]
-	DurationTooLong,
+	#[error("duration is too long (got: {got:?}, maximum: {maximum:?})")]
+	DurationTooLong { got: Duration, permit: String, maximum: Duration },
 	#[error("duration is not specified")]
 	DurationNotSpecified,
-	#[error("cooldown is not finished")]
-	CooldownNotFinished,
-	#[error("permit is not available during this time of day")]
-	AvailableBadTime,
-	#[error("cooldown after restart is not finished")]
-	CooldownAfterRestart,
+	#[error("cooldown is not finished ({left:?} left)")]
+	CooldownNotFinished { left: Duration },
+	#[error("permit is not available (only since {since} until {until})")]
+	AvailableBadTime { since: NaiveTime, until: NaiveTime },
+	#[error("cooldown after restart is not finished ({left:?} left)")]
+	CooldownAfterRestart { left: Duration },
 }
 
 pub struct PermitManager<'a> {
@@ -75,11 +75,11 @@ impl<'a> PermitManager<'a> {
 		now: &DateTime<Local>,
 		restart_time: &DateTime<Local>,
 	) -> PermitResult {
-		let id = *self.lookups.permit.id.get(name).ok_or(PermitError::PermitDoesNotExist)?;
+		let id = self.get_permit(name)?;
 		let details = self.lookups.permit.details[id];
 		let state = &mut self.state[id];
 		let duration = duration.or(details.length.default).ok_or(PermitError::DurationNotSpecified)?;
-		check_duration(duration, details)?;
+		check_duration(duration, name, details)?;
 		check_cooldown(now, state, details)?;
 		check_restart_cooldown(now, restart_time, self.lookups.config)?;
 		check_available(now, details)?;
@@ -90,7 +90,7 @@ impl<'a> PermitManager<'a> {
 	}
 
 	pub fn deactivate(&mut self, name: &str) -> PermitResult {
-		let id = *self.lookups.permit.id.get(name).ok_or(PermitError::PermitDoesNotExist)?;
+		let id = self.get_permit(name)?;
 		let state = &mut self.state[id];
 		check_active(state)?;
 		state.expires = None;
@@ -126,11 +126,22 @@ impl<'a> PermitManager<'a> {
 			state: self.lookups.permit.name.iter().copied().map(str::to_owned).zip(self.state.into_iter()).collect(),
 		}
 	}
+
+	fn get_permit(&self, name: &str) -> Result<usize, PermitError> {
+		self.lookups
+			.permit
+			.id
+			.get(name)
+			.copied()
+			.ok_or_else(|| PermitError::PermitDoesNotExist { name: name.to_owned() })
+	}
 }
 
-fn check_duration(duration: Duration, details: &config::Permit) -> PermitResult {
+fn check_duration(duration: Duration, permit_name: &str, details: &config::Permit) -> PermitResult {
 	match details.length.maximum {
-		Some(mx) if duration > mx => Err(PermitError::DurationTooLong),
+		Some(maximum) if duration > maximum => {
+			Err(PermitError::DurationTooLong { got: duration, permit: permit_name.to_owned(), maximum })
+		}
 		_ => Ok(()),
 	}
 }
@@ -138,7 +149,7 @@ fn check_duration(duration: Duration, details: &config::Permit) -> PermitResult 
 fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::Permit) -> PermitResult {
 	match (state.last_active, details.cooldown) {
 		(Some(last_active), Some(cooldown)) if last_active + chrono::Duration::from_std(cooldown).unwrap() > *now => {
-			Err(PermitError::CooldownNotFinished)
+			Err(PermitError::CooldownNotFinished { left: cooldown - (*now - last_active).to_std().unwrap() })
 		}
 		_ => Ok(()),
 	}
@@ -146,7 +157,9 @@ fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::
 
 fn check_restart_cooldown(now: &DateTime<Local>, restart_time: &DateTime<Local>, config: &Config) -> PermitResult {
 	match config.general.permit_cooldown_after_restart {
-		Some(cooldown) if (*now - *restart_time).to_std().unwrap() < cooldown => Err(PermitError::CooldownAfterRestart),
+		Some(cooldown) if (*now - *restart_time).to_std().unwrap() < cooldown => {
+			Err(PermitError::CooldownAfterRestart { left: cooldown - (*now - *restart_time).to_std().unwrap() })
+		}
 		_ => Ok(()),
 	}
 }
@@ -155,7 +168,10 @@ fn check_available(now: &DateTime<Local>, details: &config::Permit) -> PermitRes
 	if details.is_available(now) {
 		Ok(())
 	} else {
-		Err(PermitError::AvailableBadTime)
+		Err(PermitError::AvailableBadTime {
+			since: details.available.unwrap().since,
+			until: details.available.unwrap().until,
+		})
 	}
 }
 

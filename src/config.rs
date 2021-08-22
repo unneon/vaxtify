@@ -37,9 +37,9 @@ pub struct Category {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
 pub struct TimeRange {
 	#[serde(with = "serde_time")]
-	since: NaiveTime,
+	pub since: NaiveTime,
 	#[serde(with = "serde_time")]
-	until: NaiveTime,
+	pub until: NaiveTime,
 }
 
 #[derive(Debug, Deserialize)]
