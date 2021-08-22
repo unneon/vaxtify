@@ -74,8 +74,8 @@ fn run_events_to_calls() {
 	proxy.browser_register(pid).unwrap();
 	while let Ok(message) = protocol::read(&mut stdin) {
 		match deserialize_event(&message) {
-			Event::Removed { tab } => proxy.browser_tab_delete(pid, tab).unwrap(),
-			Event::Updated { tab, url } => proxy.browser_tab_update(pid, tab, &url).unwrap(),
+			Event::Removed { tab } => proxy.tab_delete(pid, tab).unwrap(),
+			Event::Updated { tab, url } => proxy.tab_update(pid, tab, &url).unwrap(),
 			Event::Handshake { .. } => {}
 		}
 	}

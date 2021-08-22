@@ -6,25 +6,17 @@ use dbus::blocking;
 
 pub trait DevPustaczekVaxtify {
 	fn browser_register(&self, pid: u32) -> Result<(), dbus::Error>;
-	fn browser_tab_delete(&self, pid: u32, tab: i32) -> Result<(), dbus::Error>;
-	fn browser_tab_update(&self, pid: u32, tab: i32, url: &str) -> Result<(), dbus::Error>;
 	fn browser_unregister(&self, pid: u32) -> Result<(), dbus::Error>;
 	fn permit_end(&self, permit: &str) -> Result<(), dbus::Error>;
 	fn permit_start(&self, permit: &str) -> Result<(), dbus::Error>;
 	fn service_reload(&self) -> Result<(), dbus::Error>;
+	fn tab_delete(&self, pid: u32, tab: i32) -> Result<(), dbus::Error>;
+	fn tab_update(&self, pid: u32, tab: i32, url: &str) -> Result<(), dbus::Error>;
 }
 
 impl<'a, T: blocking::BlockingSender, C: ::std::ops::Deref<Target = T>> DevPustaczekVaxtify for blocking::Proxy<'a, C> {
 	fn browser_register(&self, pid: u32) -> Result<(), dbus::Error> {
 		self.method_call("dev.pustaczek.Vaxtify", "BrowserRegister", (pid,))
-	}
-
-	fn browser_tab_delete(&self, pid: u32, tab: i32) -> Result<(), dbus::Error> {
-		self.method_call("dev.pustaczek.Vaxtify", "BrowserTabDelete", (pid, tab))
-	}
-
-	fn browser_tab_update(&self, pid: u32, tab: i32, url: &str) -> Result<(), dbus::Error> {
-		self.method_call("dev.pustaczek.Vaxtify", "BrowserTabUpdate", (pid, tab, url))
 	}
 
 	fn browser_unregister(&self, pid: u32) -> Result<(), dbus::Error> {
@@ -41,6 +33,14 @@ impl<'a, T: blocking::BlockingSender, C: ::std::ops::Deref<Target = T>> DevPusta
 
 	fn service_reload(&self) -> Result<(), dbus::Error> {
 		self.method_call("dev.pustaczek.Vaxtify", "ServiceReload", ())
+	}
+
+	fn tab_delete(&self, pid: u32, tab: i32) -> Result<(), dbus::Error> {
+		self.method_call("dev.pustaczek.Vaxtify", "TabDelete", (pid, tab))
+	}
+
+	fn tab_update(&self, pid: u32, tab: i32, url: &str) -> Result<(), dbus::Error> {
+		self.method_call("dev.pustaczek.Vaxtify", "TabUpdate", (pid, tab, url))
 	}
 }
 

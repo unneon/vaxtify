@@ -120,7 +120,7 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 					.inarg::<u32, _>("pid"),
 				)
 				.add_m(
-					f.method("BrowserTabUpdate", (), move |m| {
+					f.method("TabUpdate", (), move |m| {
 						let (pid, tab, url): (_, _, &str) = m.msg.read3()?;
 						let url = url.parse().unwrap();
 						event_tx4.send(Event::TabUpdate { tab: TabId { pid, tab }, url }).unwrap();
@@ -131,7 +131,7 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 					.inarg::<&str, _>("url"),
 				)
 				.add_m(
-					f.method("BrowserTabDelete", (), move |m| {
+					f.method("TabDelete", (), move |m| {
 						let (pid, tab) = m.msg.read2()?;
 						event_tx5.send(Event::TabDelete { tab: TabId { pid, tab } }).unwrap();
 						Ok(vec![m.msg.method_return()])
