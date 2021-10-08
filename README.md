@@ -55,8 +55,7 @@ categories = ["memes"]
 # Define a new permit, called "dailymemes". It will stop blocking the category
 # for 15 minutes when used, and can only be used between 20:00 and 0:00.
 [permit.dailymemes]
-length.default = { mins = 15 }
-length.maximum = { mins = 15 }
+length = { mins = 15 }
 cooldown = { hours = 20 }
 available.since = { hour = 20, min = 0 }
 available.until = { hour = 0, min = 0 }
@@ -77,7 +76,7 @@ The daemon will launch automatically, as soon as you install the web extension (
 Assuming you have not modified the default config yet, you can check that going to [youtube](https://youtube.com), [r/funny](https://www.reddit.com/r/funny), [github.com/pustaczek/icie](https://github.com/pustaczek/icie) or Googling "cat memes" will immediately close the tab, unless it's between 23:30 and 0:00 in local time.
 
 To use permits, run `vaxtify permit dailymemes` and check that the websites won't be blocked for 15 minutes.
-You can also run `vaxtify permit dailymemes 2min` to only activate it for 2 minutes, or `vaxtify permit dailymemes end` to end it quicker than planned.
+You can also run `vaxtify permit dailymemes end` to end it quicker than planned.
 
 After changing the configuration, run `systemctl --user restart vaxtify` to restart Vaxtify.
 Be aware this will also reset all cooldowns and start the restart cooldown, as the daemon does not store state between runs yet.
