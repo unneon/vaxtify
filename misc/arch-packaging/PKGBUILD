@@ -1,7 +1,7 @@
 # Maintainer: Mateusz Cegiełka <mateusz@cegla.net>
 
 pkgname=vaxtify
-pkgver=0.1.4
+pkgver=0.1.5
 pkgrel=1
 pkgdesc="Distraction blocker for the stubborn"
 url="https://github.com/pustaczek/vaxtify"
