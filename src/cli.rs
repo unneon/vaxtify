@@ -1,3 +1,4 @@
+use crate::dbus::client::DevPustaczekVaxtify;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -11,11 +12,7 @@ pub fn run() {
 	let conn = dbus::blocking::Connection::new_session().unwrap();
 	let proxy = conn.with_proxy("dev.pustaczek.Vaxtify", "/", Duration::from_millis(500));
 	let permit = argv.permit.as_str();
-	let r = if argv.is_end {
-		proxy.method_call("dev.pustaczek.Vaxtify", "PermitEnd", (permit,))
-	} else {
-		proxy.method_call("dev.pustaczek.Vaxtify", "PermitStart", (permit,))
-	};
+	let r = if argv.is_end { proxy.permit_end(permit) } else { proxy.permit_start(permit) };
 	match r {
 		Ok(()) => {}
 		Err(e) => {
