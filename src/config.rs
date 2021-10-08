@@ -12,6 +12,8 @@ pub struct General {
 	pub close_all_on_block: bool,
 	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
 	pub close_all_after_block: Option<Duration>,
+	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
+	pub reload_delay: Option<Duration>,
 	#[serde(default = "crate::processes::default_scan_each", deserialize_with = "serde_duration::deserialize")]
 	pub processes_scan_each: Duration,
 }
@@ -165,8 +167,7 @@ fn example() {
 prevent_browser_close = false
 close_all_on_block = true
 close_all_after_block = { mins = 5 }
-permit_cooldown_after_restart = { hours = 1 }
-rule_cooldown_after_restart = { hours = 1 }
+reload_delay = { mins = 15 }
 processes_scan_each = { seconds = 10 }
 
 [category.example]
@@ -201,6 +202,7 @@ block.permits = { mins = 15 }
 	assert_eq!(config.general.prevent_browser_close, false);
 	assert_eq!(config.general.close_all_on_block, true);
 	assert_eq!(config.general.close_all_after_block, Some(Duration::from_secs(5 * 60)));
+	assert_eq!(config.general.reload_delay, Some(Duration::from_secs(15 * 60)));
 	assert_eq!(config.general.processes_scan_each, Duration::from_secs(10));
 	assert_eq!(config.category.len(), 2);
 	assert_eq!(config.category["example"].domains, ["example.com"]);
