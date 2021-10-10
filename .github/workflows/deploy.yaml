@@ -1,0 +1,29 @@
+name: Deploy
+on:
+  push:
+    tags: ['*']
+jobs:
+  firefox:
+    name: Firefox
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-node@v2
+    - name: Install Mozilla signing tool
+      run: npm install --global web-ext
+    - name: Sign Firefox extension
+      run: web-ext sign --source-dir webextension --api-key ${{ secrets.MOZILLA_KEY }} --api-secret ${{ secrets.MOZILLA_SECRET }}
+    - uses: actions/upload-artifact@v2
+      with:
+        name: firefox
+        path: web-ext-artifacts/*.xpi
+  github:
+    name: GitHub
+    runs-on: ubuntu-latest
+    needs: firefox
+    steps:
+    - uses: actions/download-artifact@v2
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: firefox/*.xpi
+        token: ${{ secrets.GITHUB_TOKEN }}
