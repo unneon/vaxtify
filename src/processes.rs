@@ -17,18 +17,21 @@ impl<'a> Processes<'a> {
 	}
 
 	pub fn rescan(&mut self, blocked: &FixedBitSet, unblocked: &FixedBitSet, now: &DateTime<Local>) {
-		let processes = self
+		let processes: Vec<_> = self
 			.lookups
 			.process
 			.keys()
-			.filter(|process| should_block_mask(&self.lookups.process_to_mask(process), blocked, unblocked));
-		std::process::Command::new("killall")
-			.arg("-9")
-			.args(processes)
-			.stdout(std::process::Stdio::null())
-			.stderr(std::process::Stdio::null())
-			.status()
-			.unwrap();
+			.filter(|process| should_block_mask(&self.lookups.process_to_mask(process), blocked, unblocked))
+			.collect();
+		if !processes.is_empty() {
+			std::process::Command::new("killall")
+				.arg("-9")
+				.args(processes)
+				.stdout(std::process::Stdio::null())
+				.stderr(std::process::Stdio::null())
+				.status()
+				.unwrap();
+		}
 		self.when_last_scan = *now;
 	}
 }
