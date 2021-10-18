@@ -5,6 +5,7 @@ use dbus::blocking::LocalConnection;
 use dbus::channel::Sender;
 use dbus::strings::Interface;
 use dbus::Path;
+use dbus_tree::DataType;
 use dbus_tree::{MTFn, MethodInfo, Signal, Tree};
 use std::sync::{mpsc, Arc};
 use std::time::Duration;
@@ -25,10 +26,18 @@ pub struct DBus {
 }
 
 struct TreeInfo {
-	tree: Tree<MTFn, ()>,
-	signal_close: Arc<Signal<()>>,
-	signal_create_empty: Arc<Signal<()>>,
-	signal_refresh: Arc<Signal<()>>,
+	tree: Tree<MTFn<TreeData>, TreeData>,
+	signal_close: Arc<Signal<TreeData>>,
+	signal_create_empty: Arc<Signal<TreeData>>,
+	signal_refresh: Arc<Signal<TreeData>>,
+}
+
+#[derive(Default)]
+struct TreeData;
+
+#[derive(Debug)]
+struct EventChannel {
+	event_tx: mpsc::Sender<Event>,
 }
 
 impl DBus {
@@ -71,57 +80,52 @@ impl DBus {
 }
 
 fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
-	let event_tx1 = event_tx;
-	let event_tx3 = event_tx1.clone();
-	let event_tx4 = event_tx1.clone();
-	let event_tx5 = event_tx1.clone();
-	let event_tx6 = event_tx1.clone();
-	let event_tx7 = event_tx1.clone();
-	let f = dbus_tree::Factory::new_fn::<()>();
+	let method_channel = EventChannel { event_tx };
+	let f = dbus_tree::Factory::new_fn();
 	let signal_close = Arc::new(f.signal("TabClose", ()).sarg::<u32, _>("pid").sarg::<i32, _>("tab"));
 	let signal_create_empty = Arc::new(f.signal("TabCreateEmpty", ()).sarg::<u32, _>("pid"));
 	let signal_refresh = Arc::new(f.signal("TabRefresh", ()));
-	let tree = f.tree(()).add(
+	let tree = f.tree(method_channel).add(
 		f.object_path("/", ()).introspectable().add(
 			f.interface("dev.pustaczek.Vaxtify", ())
 				.add_s(signal_close.clone())
 				.add_s(signal_create_empty.clone())
 				.add_s(signal_refresh.clone())
-				.add_m(f.method("ServiceReload", (), move |m| {
+				.add_m(f.method("ServiceReload", (), |m| {
 					let (err_tx, err_rx) = mpsc::sync_channel(0);
 					let event = Event::ServiceReload { err_tx };
-					dbus_wait(m, &event_tx7, event, err_rx)
+					dbus_wait(m, event, err_rx)
 				}))
 				.add_m(
-					f.method("PermitStart", (), move |m| {
+					f.method("PermitStart", (), |m| {
 						let name = m.msg.read1()?;
 						let (err_tx, err_rx) = mpsc::sync_channel(0);
 						let event = Event::PermitRequest { name, err_tx };
-						dbus_wait(m, &event_tx1, event, err_rx)
+						dbus_wait(m, event, err_rx)
 					})
 					.inarg::<&str, _>("permit"),
 				)
 				.add_m(
-					f.method("PermitEnd", (), move |m| {
+					f.method("PermitEnd", (), |m| {
 						let name = m.msg.read1()?;
 						let (err_tx, err_rx) = mpsc::sync_channel(0);
 						let event = Event::PermitEnd { name, err_tx };
-						dbus_wait(m, &event_tx3, event, err_rx)
+						dbus_wait(m, event, err_rx)
 					})
 					.inarg::<&str, _>("permit"),
 				)
 				.add_m(
-					f.method("BrowserRegister", (), move |m| {
+					f.method("BrowserRegister", (), |m| {
 						let _pid: u32 = m.msg.read1()?;
 						Ok(vec![m.msg.method_return()])
 					})
 					.inarg::<u32, _>("pid"),
 				)
 				.add_m(
-					f.method("TabUpdate", (), move |m| {
+					f.method("TabUpdate", (), |m| {
 						let (pid, tab, url): (_, _, &str) = m.msg.read3()?;
 						let url = url.parse().unwrap();
-						event_tx4.send(Event::TabUpdate { tab: TabId { pid, tab }, url }).unwrap();
+						m.tree.get_data().event_tx.send(Event::TabUpdate { tab: TabId { pid, tab }, url }).unwrap();
 						Ok(vec![m.msg.method_return()])
 					})
 					.inarg::<u32, _>("pid")
@@ -129,18 +133,18 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 					.inarg::<&str, _>("url"),
 				)
 				.add_m(
-					f.method("TabDelete", (), move |m| {
+					f.method("TabDelete", (), |m| {
 						let (pid, tab) = m.msg.read2()?;
-						event_tx5.send(Event::TabDelete { tab: TabId { pid, tab } }).unwrap();
+						m.tree.get_data().event_tx.send(Event::TabDelete { tab: TabId { pid, tab } }).unwrap();
 						Ok(vec![m.msg.method_return()])
 					})
 					.inarg::<u32, _>("pid")
 					.inarg::<i32, _>("tab"),
 				)
 				.add_m(
-					f.method("BrowserUnregister", (), move |m| {
+					f.method("BrowserUnregister", (), |m| {
 						let pid = m.msg.read1()?;
-						event_tx6.send(Event::TabDeleteAll { pid }).unwrap();
+						m.tree.get_data().event_tx.send(Event::TabDeleteAll { pid }).unwrap();
 						Ok(vec![m.msg.method_return()])
 					})
 					.inarg::<u32, _>("pid"),
@@ -150,13 +154,27 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 	TreeInfo { tree, signal_close, signal_create_empty, signal_refresh }
 }
 
+impl DataType for TreeData {
+	type Tree = EventChannel;
+	type ObjectPath = ();
+	type Property = ();
+	type Interface = ();
+	type Method = ();
+	type Signal = ();
+}
+
+impl Default for EventChannel {
+	fn default() -> Self {
+		EventChannel { event_tx: mpsc::channel().0 }
+	}
+}
+
 fn dbus_wait<E: std::error::Error + 'static>(
-	m: &MethodInfo<MTFn, ()>,
-	event_tx: &mpsc::Sender<Event>,
+	m: &MethodInfo<MTFn<TreeData>, TreeData>,
 	event: Event,
 	err_rx: mpsc::Receiver<Result<(), E>>,
 ) -> dbus_tree::MethodResult {
-	event_tx.send(event).unwrap();
+	m.tree.get_data().event_tx.send(event).unwrap();
 	match err_rx.recv().unwrap() {
 		Ok(()) => Ok(vec![m.msg.method_return()]),
 		Err(err) => Err(dbus::Error::new_custom("dev.pustaczek.Vaxtify.Error", format_error(&err).as_str()).into()),
