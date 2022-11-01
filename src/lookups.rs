@@ -26,35 +26,35 @@ pub struct Table<'a, T> {
 
 impl<'a> Lookups<'a> {
 	pub fn new(config: &'a Config) -> Self {
-		let mut domain: HashMap<_, Vec<usize>> = HashMap::new();
-		let mut subreddit: HashMap<_, Vec<usize>> = HashMap::new();
-		let mut github: HashMap<_, Vec<usize>> = HashMap::new();
-		let mut process: HashMap<_, Vec<usize>> = HashMap::new();
+		let mut domain: HashMap<&str, Vec<usize>> = HashMap::new();
+		let mut subreddit: HashMap<&str, Vec<usize>> = HashMap::new();
+		let mut github: HashMap<&str, Vec<usize>> = HashMap::new();
+		let mut process: HashMap<&str, Vec<usize>> = HashMap::new();
 		let mut category = Table::new();
 		let mut permit = Table::new();
 		let mut regex_category = Vec::new();
 		let mut regex_set_vec = Vec::new();
-		for (cat_name, cat_details) in &config.category {
-			let cat = category.insert(cat_name.as_str(), cat_details);
-			for dom in &cat_details.domains {
-				domain.entry(dom.as_str()).or_default().push(cat);
+		for cat in &config.categories {
+			let cat_index = category.insert(&cat.name, cat);
+			for dom in cat.domains.iter().flatten() {
+				domain.entry(dom).or_default().push(cat_index);
 			}
-			for sub in &cat_details.subreddits {
-				subreddit.entry(sub.as_str()).or_default().push(cat);
+			for sub in cat.subreddits.iter().flatten() {
+				subreddit.entry(sub).or_default().push(cat_index);
 			}
-			for git in &cat_details.githubs {
-				github.entry(git.as_str()).or_default().push(cat);
+			for git in cat.githubs.iter().flatten() {
+				github.entry(git).or_default().push(cat_index);
 			}
-			for reg in &cat_details.regexes {
-				regex_category.push(cat);
+			for reg in cat.regexes.iter().flatten() {
+				regex_category.push(cat_index);
 				regex_set_vec.push(reg);
 			}
-			for proc in &cat_details.processes {
-				process.entry(proc.as_str()).or_default().push(cat);
+			for proc in cat.processes.iter().flatten() {
+				process.entry(proc).or_default().push(cat_index);
 			}
 		}
-		for (per_name, per_details) in &config.permit {
-			permit.insert(per_name.as_str(), per_details);
+		for per in &config.permits {
+			permit.insert(&per.name, per);
 		}
 		let regex_set = RegexSet::new(regex_set_vec).unwrap();
 		Lookups { config, domain, subreddit, github, process, category, permit, regex_category, regex_set }

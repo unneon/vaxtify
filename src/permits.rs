@@ -1,5 +1,4 @@
 use crate::config;
-use crate::config::Config;
 use crate::lookups::Lookups;
 use chrono::{DateTime, Local, NaiveTime};
 use fixedbitset::FixedBitSet;
@@ -69,16 +68,14 @@ impl<'a> PermitManager<'a> {
 		&self.unblocked
 	}
 
-	pub fn activate(&mut self, name: &str, now: &DateTime<Local>, restart_time: &DateTime<Local>) -> PermitResult {
+	pub fn activate(&mut self, name: &str, now: &DateTime<Local>) -> PermitResult {
 		let id = self.get_permit(name)?;
 		let details = self.lookups.permit.details[id];
 		let state = &mut self.state[id];
 		check_cooldown(now, state, details)?;
-		check_restart_cooldown(now, restart_time, self.lookups.config)?;
-		check_reload_cooldown(now, restart_time, self.lookups.config)?;
 		check_available(now, details)?;
 		state.last_active = Some(*now);
-		state.expires = Some(*now + chrono::Duration::from_std(details.length).unwrap());
+		state.expires = Some(*now + chrono::Duration::from_std(details.length.into()).unwrap());
 		Ok(())
 	}
 
@@ -129,8 +126,12 @@ impl<'a> PermitManager<'a> {
 
 fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::Permit) -> PermitResult {
 	match (state.last_active, details.cooldown) {
-		(Some(last_active), Some(cooldown)) if last_active + chrono::Duration::from_std(cooldown).unwrap() > *now => {
-			let error = PermitError::CooldownNotFinished { left: cooldown - (*now - last_active).to_std().unwrap() };
+		(Some(last_active), Some(cooldown))
+			if last_active + chrono::Duration::from_std(cooldown.into()).unwrap() > *now =>
+		{
+			let error = PermitError::CooldownNotFinished {
+				left: Duration::from(cooldown) - (*now - last_active).to_std().unwrap(),
+			};
 			if state.expires.is_some() {
 				Err(PermitError::PermitExtensionRefused(Box::new(error)))
 			} else {
@@ -141,31 +142,13 @@ fn check_cooldown(now: &DateTime<Local>, state: &PermitState, details: &config::
 	}
 }
 
-fn check_restart_cooldown(now: &DateTime<Local>, restart_time: &DateTime<Local>, config: &Config) -> PermitResult {
-	match config.after.restart.block.permits {
-		Some(cooldown) if (*now - *restart_time).to_std().unwrap() < cooldown => {
-			Err(PermitError::CooldownAfterRestart { left: cooldown - (*now - *restart_time).to_std().unwrap() })
-		}
-		_ => Ok(()),
-	}
-}
-
-fn check_reload_cooldown(now: &DateTime<Local>, restart_time: &DateTime<Local>, config: &Config) -> PermitResult {
-	match config.after.reload.block.permits {
-		Some(cooldown) if (*now - *restart_time).to_std().unwrap() < cooldown => {
-			Err(PermitError::CooldownAfterRestart { left: cooldown - (*now - *restart_time).to_std().unwrap() })
-		}
-		_ => Ok(()),
-	}
-}
-
 fn check_available(now: &DateTime<Local>, details: &config::Permit) -> PermitResult {
 	if details.is_available(now) {
 		Ok(())
 	} else {
 		Err(PermitError::AvailableBadTime {
-			since: details.available.unwrap().since,
-			until: details.available.unwrap().until,
+			since: details.available.unwrap().since.into(),
+			until: details.available.unwrap().until.into(),
 		})
 	}
 }

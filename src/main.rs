@@ -50,8 +50,6 @@ fn main() {
 }
 
 fn run_daemon_outer() {
-	let restart_time = Local::now();
-
 	let config = Config::load().unwrap();
 	let event_queue = mpsc::channel();
 	let dbus = DBus::new(event_queue.0);
@@ -59,31 +57,24 @@ fn run_daemon_outer() {
 
 	let mut save_state = SaveState { config, tabs: Default::default(), permits: Default::default() };
 	loop {
-		save_state = run_daemon(restart_time, save_state, &dbus, &event_queue.1);
+		save_state = run_daemon(save_state, &dbus, &event_queue.1);
 	}
 }
 
-fn run_daemon(
-	restart_time: DateTime<Local>,
-	save_state: SaveState,
-	dbus: &DBus,
-	event_queue: &mpsc::Receiver<Event>,
-) -> SaveState {
-	let reload_time = Local::now();
+fn run_daemon(save_state: SaveState, dbus: &DBus, event_queue: &mpsc::Receiver<Event>) -> SaveState {
 	let config = save_state.config;
 	let lookups = lookups::Lookups::new(&config);
 	let mut tabs = tabs::Tabs::new(&lookups, save_state.tabs);
 	let mut processes = Processes::new(&lookups);
-	let mut rules = RuleManager::new(&lookups, &restart_time, &reload_time);
+	let mut rules = RuleManager::new(&lookups);
 	let mut permits = PermitManager::new(&lookups, save_state.permits);
-	let mut when_reload_config = None;
-	let mut when_reload_config_new_config = None;
 
-	rules.reload(&reload_time);
-	permits.reload(&reload_time);
-	tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &reload_time);
-	processes.rescan(rules.blocked(), permits.unblocked(), &reload_time);
-	let mut when_reload = compute_when_reload(&rules, &permits, &processes, &reload_time, &when_reload_config);
+	let initial_time = Local::now();
+	rules.reload(&initial_time);
+	permits.reload(&initial_time);
+	tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &initial_time);
+	processes.rescan(rules.blocked(), permits.unblocked(), &initial_time);
+	let mut when_reload = compute_when_reload(&rules, &permits, &processes, &initial_time);
 
 	loop {
 		let timeout = when_reload.and_then(|when| (when - Local::now()).to_std().ok());
@@ -93,18 +84,18 @@ fn run_daemon(
 		if let Some(event) = event {
 			match event {
 				Event::PermitRequest { name, err_tx } => {
-					err_tx.send(permits.activate(&name, &now, &restart_time)).unwrap();
+					err_tx.send(permits.activate(&name, &now)).unwrap();
 					permits.reload(&now);
 					tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &now);
 					processes.rescan(rules.blocked(), permits.unblocked(), &now);
-					when_reload = compute_when_reload(&rules, &permits, &processes, &now, &when_reload_config);
+					when_reload = compute_when_reload(&rules, &permits, &processes, &now);
 				}
 				Event::PermitEnd { name, err_tx } => {
 					err_tx.send(permits.deactivate(&name)).unwrap();
 					permits.reload(&now);
 					tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &now);
 					processes.rescan(rules.blocked(), permits.unblocked(), &now);
-					when_reload = compute_when_reload(&rules, &permits, &processes, &now, &when_reload_config);
+					when_reload = compute_when_reload(&rules, &permits, &processes, &now);
 				}
 				Event::TabUpdate { tab, url } => {
 					tabs.insert(tab, url, rules.blocked(), permits.unblocked(), dbus, &now)
@@ -113,12 +104,11 @@ fn run_daemon(
 				Event::TabDeleteAll { pid } => tabs.clear(pid),
 				Event::ServiceReload { err_tx } => match Config::load() {
 					Ok(new_config) => {
-						err_tx.send(Ok(())).unwrap();
-						when_reload_config = Some(
-							now + chrono::Duration::from_std(config.general.reload_delay.unwrap_or(Duration::ZERO))
-								.unwrap(),
-						);
-						when_reload_config_new_config = Some(new_config);
+						return SaveState {
+							config: new_config,
+							tabs: tabs.save_state(),
+							permits: permits.save_state(),
+						};
 					}
 					Err(err) => err_tx.send(Err(err)).unwrap(),
 				},
@@ -128,16 +118,7 @@ fn run_daemon(
 			permits.reload(&now);
 			tabs.rescan(rules.blocked(), permits.unblocked(), dbus, &now);
 			processes.rescan(rules.blocked(), permits.unblocked(), &now);
-			if let Some(when_reload_config) = &when_reload_config {
-				if *when_reload_config <= now {
-					return SaveState {
-						config: when_reload_config_new_config.unwrap(),
-						tabs: tabs.save_state(),
-						permits: permits.save_state(),
-					};
-				}
-			}
-			when_reload = compute_when_reload(&rules, &permits, &processes, &now, &when_reload_config);
+			when_reload = compute_when_reload(&rules, &permits, &processes, &now);
 		}
 	}
 }
@@ -158,14 +139,6 @@ fn compute_when_reload(
 	permits: &PermitManager,
 	processes: &Processes,
 	now: &DateTime<Local>,
-	when_reload_config: &Option<DateTime<Local>>,
 ) -> Option<DateTime<Local>> {
-	std::array::IntoIter::new([
-		rules.when_reload(now),
-		permits.when_reload(),
-		processes.when_reload(),
-		*when_reload_config,
-	])
-	.flatten()
-	.min()
+	IntoIterator::into_iter([rules.when_reload(now), permits.when_reload(), processes.when_reload()]).flatten().min()
 }

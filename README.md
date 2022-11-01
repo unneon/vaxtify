@@ -28,41 +28,45 @@ If you want more fine-grained control over what you can access, you can use perm
 Each permit has a name, and a list of categories it will allow you to visit (despite them being blocked by rules).
 Optionally, you can set how long they will last by default, how long they can last at most, how rarely they can be used, and a set period during which they can be used.
 
-```toml
-# General settings, specify whether an empty tab should be created after closing
-# the last one, whether all tabs should be closed or just the blocked ones, and
-# how long should permits be blocked after a restart.
-[general]
-prevent_browser_close = false
-close_all_on_block = false
+```kdl
+// General settings, such as specifying whether an empty tab should be created
+// after closing the last one.
+// prevent-browser-close
 
-# Define a new category, called "memes". Pay attention whether URLs include www
-# or not. Subreddits are case insensitive. Each line can be omitted if empty.
-[category.memes]
-domains = ["www.youtube.com"]
-subreddits = ["all", "funny"]
-githubs = ["pustaczek/icie"]
-regexes = ["\\w+\\+memes"]
+// Define a new category, called "memes". Pay attention whether URLs include www
+// or not. Subreddits are case insensitive. Each line can be omitted if empty.
+category "memes" {
+    domains "www.youtube.com"
+    subreddits "all" "funny"
+    githubs "unneon/icie"
+    regexes r"\w+\+memes"
+}
 
-# Create a rule that applies to everything from "meme" category. It will be
-# active before 23:30 and after 0:00 in local time. If you want a rule to be
-# always active, remove the "allowed" lines.
-[rule.toomanymemes]
-allowed.since = { hour = 23, min = 30 }
-allowed.until = { hour = 0, min = 0 }
-categories = ["memes"]
+// Create a rule that applies to everything from "meme" category. It will be
+// active before 23:30 and after 0:00 in local time. If you want a rule to be
+// always active, remove the "allowed" block.
+rule "toomanymemes" {
+    allowed {
+        since hour=23 min=30
+        until hour=0
+    }
+    categories "memes"
+}
 
-# Define a new permit, called "dailymemes". It will stop blocking the category
-# for 15 minutes when used, and can only be used between 20:00 and 0:00.
-[permit.dailymemes]
-length = { mins = 15 }
-cooldown = { hours = 20 }
-available.since = { hour = 20, min = 0 }
-available.until = { hour = 0, min = 0 }
-categories = ["memes"]
+// Define a new permit, called "dailymemes". It will stop blocking the category
+// for 15 minutes when used, and can only be used between 20:00 and 0:00.
+permit "dailymemes" {
+    length mins=15
+    cooldown hours=20
+    available {
+        since hour=20
+        until hour=0
+    }
+    categories ["memes"]
+}
 ```
 
-Copy this file to ~/.config/vaxtify.toml.
+Copy this file to ~/.config/vaxtify.kdl.
 I suggest to check if everything works before editing it.
 
 ### Install the browser extension

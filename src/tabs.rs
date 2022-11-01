@@ -93,14 +93,14 @@ impl<'a> Tabs<'a> {
 
 	pub fn close(&mut self, tab: TabId, dbus: &DBus, now: &DateTime<Local>) {
 		let is_last = self.alive.remove(&tab) && self.alive.is_empty();
-		if let Some(close_all_after_block) = self.lookups.config.general.close_all_after_block {
-			self.block_all_until = Some(*now + chrono::Duration::from_std(close_all_after_block).unwrap());
+		if let Some(close_all_after_block) = self.lookups.config.close_all_after_block {
+			self.block_all_until = Some(*now + chrono::Duration::from_std(close_all_after_block.into()).unwrap());
 		}
-		if is_last && self.lookups.config.general.prevent_browser_close {
+		if is_last && self.lookups.config.prevent_browser_close {
 			dbus.tab_create_empty(tab.pid);
 		}
 		dbus.tab_close(tab);
-		if self.lookups.config.general.close_all_on_block {
+		if self.lookups.config.close_all_on_block {
 			if let Some(other_alive) = self.alive.iter().next().copied() {
 				self.close(other_alive, dbus, now);
 			}

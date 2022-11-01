@@ -1,120 +1,106 @@
-mod serde_duration;
-mod serde_time;
+mod kdl_duration;
+mod kdl_time;
 
 use chrono::{DateTime, Local, NaiveTime};
-use serde::Deserialize;
-use std::collections::HashMap;
+use knuffel::Decode;
+#[cfg(test)]
 use std::time::Duration;
 
-#[derive(Debug, Deserialize)]
-pub struct General {
-	pub prevent_browser_close: bool,
-	pub close_all_on_block: bool,
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub close_all_after_block: Option<Duration>,
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub reload_delay: Option<Duration>,
-	#[serde(default = "crate::processes::default_scan_each", deserialize_with = "serde_duration::deserialize")]
-	pub processes_scan_each: Duration,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Category {
-	#[serde(default)]
-	pub domains: Vec<String>,
-	#[serde(default)]
-	pub subreddits: Vec<String>,
-	#[serde(default)]
-	pub githubs: Vec<String>,
-	#[serde(default)]
-	pub regexes: Vec<String>,
-	#[serde(default)]
-	pub processes: Vec<String>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
-pub struct TimeRange {
-	#[serde(with = "serde_time")]
-	pub since: NaiveTime,
-	#[serde(with = "serde_time")]
-	pub until: NaiveTime,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Rule {
-	#[serde(default)]
-	pub allowed: Option<TimeRange>,
-	pub categories: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Permit {
-	#[serde(default, deserialize_with = "serde_duration::deserialize")]
-	pub length: Duration,
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub cooldown: Option<Duration>,
-	#[serde(default)]
-	pub available: Option<TimeRange>,
-	pub categories: Vec<String>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub struct AfterBlock {
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub rules: Option<Duration>,
-	#[serde(default, deserialize_with = "serde_duration::deserialize_option")]
-	pub permits: Option<Duration>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub struct After {
-	pub block: AfterBlock,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub struct AfterEvents {
-	#[serde(default)]
-	pub restart: After,
-	#[serde(default)]
-	pub reload: After,
-}
-
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Decode)]
 pub struct Config {
-	pub general: General,
-	pub category: HashMap<String, Category>,
-	pub rule: HashMap<String, Rule>,
-	#[serde(default)]
-	pub permit: HashMap<String, Permit>,
-	#[serde(default)]
-	pub after: AfterEvents,
+	#[knuffel(child)]
+	pub prevent_browser_close: bool,
+	#[knuffel(child)]
+	pub close_all_on_block: bool,
+	#[knuffel(child)]
+	pub close_all_after_block: Option<kdl_duration::Duration>,
+	#[knuffel(child)]
+	pub reload_delay: Option<kdl_duration::Duration>,
+	#[knuffel(child, default = crate::processes::DEFAULT_SCAN_EACH.into())]
+	pub processes_scan_each: kdl_duration::Duration,
+	#[knuffel(children(name = "category"))]
+	pub categories: Vec<Category>,
+	#[knuffel(children(name = "rule"))]
+	pub rules: Vec<Rule>,
+	#[knuffel(children(name = "permit"))]
+	pub permits: Vec<Permit>,
+}
+
+#[derive(Debug, Decode)]
+pub struct Category {
+	#[knuffel(argument)]
+	pub name: String,
+	#[knuffel(child, unwrap(arguments))]
+	pub domains: Option<Vec<String>>,
+	#[knuffel(child, unwrap(arguments))]
+	pub subreddits: Option<Vec<String>>,
+	#[knuffel(child, unwrap(arguments))]
+	pub githubs: Option<Vec<String>>,
+	#[knuffel(child, unwrap(arguments))]
+	pub regexes: Option<Vec<String>>,
+	#[knuffel(child, unwrap(arguments))]
+	pub processes: Option<Vec<String>>,
+}
+
+#[derive(Clone, Copy, Debug, Decode, Eq, PartialEq)]
+pub struct TimeRange {
+	#[knuffel(child)]
+	pub since: kdl_time::NaiveTime,
+	#[knuffel(child)]
+	pub until: kdl_time::NaiveTime,
+}
+
+#[derive(Debug, Decode)]
+pub struct Rule {
+	#[knuffel(argument)]
+	pub name: String,
+	#[knuffel(child)]
+	pub allowed: Option<TimeRange>,
+	#[knuffel(child, unwrap(arguments))]
+	pub categories: Vec<String>,
+}
+
+#[derive(Debug, Decode)]
+pub struct Permit {
+	#[knuffel(argument)]
+	pub name: String,
+	#[knuffel(child)]
+	pub length: kdl_duration::Duration,
+	#[knuffel(child)]
+	pub cooldown: Option<kdl_duration::Duration>,
+	#[knuffel(child)]
+	pub available: Option<TimeRange>,
+	#[knuffel(child, unwrap(arguments))]
+	pub categories: Vec<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
 pub enum ConfigError {
 	#[error("config parse error")]
-	ParseError(#[from] toml::de::Error),
+	ParseError(#[from] knuffel::Error),
 	#[error("config validation failed ({details})")]
 	ValidationFailure { details: &'static str },
 }
 
+const CONFIG_FILE_NAME: &str = "vaxtify.kdl";
+
 impl Config {
 	pub fn load() -> Result<Config, ConfigError> {
-		let path = dirs::config_dir().unwrap().join("vaxtify.toml");
+		let path = dirs::config_dir().unwrap().join(CONFIG_FILE_NAME);
 		let file = std::fs::read_to_string(path).unwrap();
 		Config::parse(&file)
 	}
 
 	pub fn parse(file: &str) -> Result<Config, ConfigError> {
-		let config: Config = toml::from_str(file)?;
-		if config.general.prevent_browser_close && config.general.close_all_on_block {
+		let config: Config = knuffel::parse(CONFIG_FILE_NAME, file)?;
+		if config.prevent_browser_close && config.close_all_after_block.is_some() {
 			return Err(ConfigError::ValidationFailure {
-				details: "prevent_browser_close and close_all_on_block can't both be true",
+				details: "prevent-browser-close and close-all-after-block can't both be set",
 			});
 		}
-		if !config.general.close_all_on_block && config.general.close_all_after_block.is_some() {
+		if config.close_all_on_block && config.close_all_after_block.is_some() {
 			return Err(ConfigError::ValidationFailure {
-				details: "close_all_after_block can't be set when close_all_on_block is false",
+				details: "close-all-on-block and close-all-after-block can't both be set",
 			});
 		}
 		Ok(config)
@@ -123,7 +109,8 @@ impl Config {
 
 impl TimeRange {
 	fn contains(&self, now: &DateTime<Local>) -> bool {
-		let TimeRange { since, until } = *self;
+		let since: NaiveTime = self.since.into();
+		let until: NaiveTime = self.until.into();
 		let time = now.naive_local().time();
 		if since <= until {
 			time >= since && time < until
@@ -140,8 +127,8 @@ impl Rule {
 
 	pub fn next_change_time(&self, now: &DateTime<Local>) -> Option<DateTime<Local>> {
 		let TimeRange { since, until } = self.allowed?;
-		let next_start = upper_bound_with_time(now, &since);
-		let next_end = upper_bound_with_time(now, &until);
+		let next_start = upper_bound_with_time(now, &since.into());
+		let next_end = upper_bound_with_time(now, &until.into());
 		Some(next_start.min(next_end))
 	}
 }
@@ -163,69 +150,67 @@ fn upper_bound_with_time(greater_than: &DateTime<Local>, set_time: &NaiveTime) -
 #[test]
 fn example() {
 	let text = r#"
-[general]
-prevent_browser_close = false
-close_all_on_block = true
-close_all_after_block = { mins = 5 }
-reload_delay = { mins = 15 }
-processes_scan_each = { seconds = 10 }
+prevent-browser-close
 
-[category.example]
-domains = ["example.com"]
-subreddits = ["all"]
-githubs = ["pustaczek/icie"]
-regexes = ["example\\.org"]
-processes = ["chrome"]
+category "example" {
+	domains "example.com"
+	subreddits "all"
+	githubs "unneon/icie"
+	regexes r"example\.org"
+	processes "chrome"
+}
 
-[category.other]
-githubs = ["pustaczek/vaxtify"]
+category "other" {
+	githubs "unneon/vaxtify"
+}
 
-[rule.things]
-allowed.since = { hour = 23, min = 0 }
-allowed.until = { hour = 0, min = 0 }
-categories = ["example"]
+rule "things" {
+	allowed {
+		since hour=23 min=30
+		until hour=0
+	}
+	categories "example"
+}
 
-[rule.never]
-categories = ["other"]
+rule "never" {
+	categories "other"
+}
 
-[permit.example]
-length = { mins = 30 }
-cooldown = { hours = 20 }
-available.since = { hour = 20, min = 0 }
-available.until = { hour = 0, min = 0 }
-categories = ["other"]
-
-[after.restart]
-block.permits = { mins = 15 }
+permit "example" {
+	length mins=30
+	cooldown hours=20
+	available {
+		since hour=20
+		until hour=0
+	}
+	categories "other"
+}
 "#;
 	let config = Config::parse(text).unwrap();
-	assert_eq!(config.general.prevent_browser_close, false);
-	assert_eq!(config.general.close_all_on_block, true);
-	assert_eq!(config.general.close_all_after_block, Some(Duration::from_secs(5 * 60)));
-	assert_eq!(config.general.reload_delay, Some(Duration::from_secs(15 * 60)));
-	assert_eq!(config.general.processes_scan_each, Duration::from_secs(10));
-	assert_eq!(config.category.len(), 2);
-	assert_eq!(config.category["example"].domains, ["example.com"]);
-	assert_eq!(config.category["example"].subreddits, ["all"]);
-	assert_eq!(config.category["example"].githubs, ["pustaczek/icie"]);
-	assert_eq!(config.category["example"].regexes, ["example\\.org"]);
-	assert_eq!(config.category["example"].processes, ["chrome"]);
-	assert_eq!(config.category["other"].githubs, ["pustaczek/vaxtify"]);
-	assert_eq!(config.rule.len(), 2);
-	assert_eq!(
-		config.rule["things"].allowed,
-		Some(TimeRange { since: NaiveTime::from_hms(23, 0, 0), until: NaiveTime::from_hms(0, 0, 0) })
-	);
-	assert_eq!(config.rule["things"].categories, ["example"]);
-	assert_eq!(config.rule["never"].allowed, None);
-	assert_eq!(config.rule["never"].categories, ["other"]);
-	assert_eq!(config.permit.len(), 1);
-	assert_eq!(config.permit["example"].length, Duration::from_secs(30 * 60));
-	assert_eq!(config.permit["example"].cooldown, Some(Duration::from_secs(20 * 60 * 60)));
-	assert_eq!(
-		config.permit["example"].available,
-		Some(TimeRange { since: NaiveTime::from_hms(20, 0, 0), until: NaiveTime::from_hms(0, 0, 0) })
-	);
-	assert_eq!(config.permit["example"].categories, ["other"]);
-	assert_eq!(config.after.restart.block.permits, Some(Duration::from_secs(15 * 60)));
+	assert_eq!(config.prevent_browser_close, true);
+	assert_eq!(Duration::from(config.processes_scan_each), Duration::from_secs(10));
+	assert_eq!(config.categories.len(), 2);
+	assert_eq!(config.categories[0].name, "example");
+	assert_eq!(config.categories[0].domains, Some(vec!["example.com".to_string()]));
+	assert_eq!(config.categories[0].subreddits, Some(vec!["all".to_string()]));
+	assert_eq!(config.categories[0].githubs, Some(vec!["unneon/icie".to_string()]));
+	assert_eq!(config.categories[0].regexes, Some(vec!["example\\.org".to_string()]));
+	assert_eq!(config.categories[0].processes, Some(vec!["chrome".to_string()]));
+	assert_eq!(config.categories[1].name, "other");
+	assert_eq!(config.categories[1].githubs, Some(vec!["unneon/vaxtify".to_string()]));
+	assert_eq!(config.rules.len(), 2);
+	assert_eq!(config.rules[0].name, "things");
+	assert_eq!(config.rules[0].allowed.map(|r| NaiveTime::from(r.since)), Some(NaiveTime::from_hms(23, 30, 0)));
+	assert_eq!(config.rules[0].allowed.map(|r| NaiveTime::from(r.until)), Some(NaiveTime::from_hms(0, 0, 0)));
+	assert_eq!(config.rules[0].categories, ["example"]);
+	assert_eq!(config.rules[1].name, "never");
+	assert_eq!(config.rules[1].allowed, None);
+	assert_eq!(config.rules[1].categories, ["other"]);
+	assert_eq!(config.permits.len(), 1);
+	assert_eq!(config.permits[0].name, "example");
+	assert_eq!(Duration::from(config.permits[0].length), Duration::from_secs(30 * 60));
+	assert_eq!(config.permits[0].cooldown.map(Duration::from), Some(Duration::from_secs(20 * 60 * 60)));
+	assert_eq!(config.permits[0].available.map(|r| NaiveTime::from(r.since)), Some(NaiveTime::from_hms(20, 0, 0)));
+	assert_eq!(config.permits[0].available.map(|r| NaiveTime::from(r.until)), Some(NaiveTime::from_hms(0, 0, 0)));
+	assert_eq!(config.permits[0].categories, ["other"]);
 }

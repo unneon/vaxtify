@@ -1,11 +1,14 @@
 use crate::lookups::Lookups;
 use chrono::{DateTime, Local};
 use fixedbitset::FixedBitSet;
+use std::time::Duration;
 
 pub struct Processes<'a> {
 	lookups: &'a Lookups<'a>,
 	when_last_scan: DateTime<Local>,
 }
+
+pub const DEFAULT_SCAN_EACH: Duration = Duration::from_secs(10);
 
 impl<'a> Processes<'a> {
 	pub fn new(lookups: &'a Lookups<'a>) -> Self {
@@ -13,7 +16,7 @@ impl<'a> Processes<'a> {
 	}
 
 	pub fn when_reload(&self) -> Option<DateTime<Local>> {
-		Some(self.when_last_scan + chrono::Duration::from_std(self.lookups.config.general.processes_scan_each).unwrap())
+		Some(self.when_last_scan + chrono::Duration::from_std(self.lookups.config.processes_scan_each.into()).unwrap())
 	}
 
 	pub fn rescan(&mut self, blocked: &FixedBitSet, unblocked: &FixedBitSet, now: &DateTime<Local>) {
@@ -34,10 +37,6 @@ impl<'a> Processes<'a> {
 		}
 		self.when_last_scan = *now;
 	}
-}
-
-pub fn default_scan_each() -> std::time::Duration {
-	std::time::Duration::from_secs(10)
 }
 
 fn should_block_mask(mask: &FixedBitSet, blocked: &FixedBitSet, unblocked: &FixedBitSet) -> bool {
