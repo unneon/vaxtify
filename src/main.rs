@@ -104,6 +104,7 @@ fn run_daemon(save_state: SaveState, dbus: &DBus, event_queue: &mpsc::Receiver<E
 				Event::TabDeleteAll { pid } => tabs.clear(pid),
 				Event::ServiceReload { err_tx } => match Config::load() {
 					Ok(new_config) => {
+						err_tx.send(Ok(())).unwrap();
 						return SaveState {
 							config: new_config,
 							tabs: tabs.save_state(),
