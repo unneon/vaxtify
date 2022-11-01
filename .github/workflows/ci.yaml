@@ -11,7 +11,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install system dependencies
-      run: sudo apt-get install libdbus-1-dev
+      run: sudo apt-get update && sudo apt-get install libdbus-1-dev
     - name: Build
       uses: actions-rs/cargo@v1
       with:
@@ -23,7 +23,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install system dependencies
-      run: sudo apt-get install libdbus-1-dev
+      run: sudo apt-get update && sudo apt-get install libdbus-1-dev
     - name: Test
       uses: actions-rs/cargo@v1
       with:
@@ -47,7 +47,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install system dependencies
-      run: sudo apt-get install libdbus-1-dev
+      run: sudo apt-get update && sudo apt-get install libdbus-1-dev
     - name: Verify linter
       uses: actions-rs/cargo@v1
       with:
