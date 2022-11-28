@@ -3,6 +3,8 @@ mod kdl_time;
 
 use chrono::{DateTime, Local, NaiveTime};
 use knuffel::Decode;
+use std::collections::HashSet;
+use std::hash::Hash;
 #[cfg(test)]
 use std::time::Duration;
 
@@ -103,6 +105,9 @@ impl Config {
 				details: "close-all-on-block and close-all-after-block can't both be set",
 			});
 		}
+		check_unique_names(&config.categories, |c| &c.name)?;
+		check_unique_names(&config.rules, |r| &r.name)?;
+		check_unique_names(&config.permits, |p| &p.name)?;
 		Ok(config)
 	}
 }
@@ -145,6 +150,14 @@ fn upper_bound_with_time(greater_than: &DateTime<Local>, set_time: &NaiveTime) -
 		candidate = candidate.succ();
 	}
 	candidate.and_time(*set_time).unwrap()
+}
+
+fn check_unique_names<T, U: Eq + Hash>(blocks: &[T], name: impl Fn(&T) -> &U) -> Result<(), ConfigError> {
+	let set: HashSet<&U> = blocks.iter().map(name).collect();
+	if set.len() != blocks.len() {
+		return Err(ConfigError::ValidationFailure { details: "blocks of the same type can't have identical names" });
+	}
+	Ok(())
 }
 
 #[test]
@@ -213,4 +226,68 @@ permit "example" {
 	assert_eq!(config.permits[0].available.map(|r| NaiveTime::from(r.since)), Some(NaiveTime::from_hms(20, 0, 0)));
 	assert_eq!(config.permits[0].available.map(|r| NaiveTime::from(r.until)), Some(NaiveTime::from_hms(0, 0, 0)));
 	assert_eq!(config.permits[0].categories, ["other"]);
+}
+
+#[test]
+fn duplicate_categories() {
+	let text = r#"
+category "example" {
+	domains "example.com"
+}
+
+category "example" {
+	domains "example.org"
+}
+"#;
+	assert_duplicate_error(text);
+}
+
+#[test]
+fn duplicate_rules() {
+	let text = r#"
+category "example" {
+	domains "example.org"
+}
+
+rule "never" {
+	categories "example"
+}
+
+rule "never" {
+	categories "example"
+}
+"#;
+	assert_duplicate_error(text);
+}
+
+#[test]
+fn duplicate_permits() {
+	let text = r#"
+category "example" {
+	domains "example.com"
+}
+
+permit "sometimes" {
+	length mins=30
+	categories "example"
+}
+
+permit "sometimes" {
+	length mins=60
+	categories "example"
+}
+"#;
+	assert_duplicate_error(text);
+}
+
+#[cfg(test)]
+fn assert_duplicate_error(text: &str) {
+	let result = Config::parse(text);
+	if let Err(e) = &result {
+		if let ConfigError::ValidationFailure { details } = e {
+			assert_eq!(*details, "blocks of the same type can't have identical names");
+			return;
+		}
+	}
+	panic!("{:?}", result);
 }
