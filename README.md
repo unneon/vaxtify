@@ -11,10 +11,8 @@ Vaxtify works on Linux, and the required extension is packaged for Firefox.
 
 ### Install the program
 
-If you use Arch Linux, you can use a prepared [PKGBUILD](misc/arch-packaging/PKGBUILD) script.
-Otherwise, install Rust, lidbus-1-dev or equivalent, and manually run the build command and copy files as shown in the linked script.
-
-Vaxtify daemon will be managed by systemd, so run `systemctl --user daemon-reload` to load the installed service files.
+If you use Arch Linux, you can install Vaxtify from AUR using `yay -S vaxtify`.
+Otherwise, install Rust, lidbus-1-dev or equivalent, manually run the build command and copy files as shown in the [PKGBUILD](misc/arch-packaging/PKGBUILD) script, and run `systemctl --user daemon-reload` to load the installed service files.
 
 ### Configure
 
@@ -71,8 +69,8 @@ I suggest to check if everything works before editing it.
 
 ### Install the browser extension
 
-View the [latest release](https://github.com/unneon/vaxtify/releases/latest) on github and click on the vaxtify.xpi asset.
-Your browser should download and install it after asking you for permission.
+If you installed Vaxtify from AUR, restart Firefox and activate the extension in the application menu.
+Otherwise, view the [latest release](https://github.com/unneon/vaxtify/releases/latest) on GitHub and click on the vaxtify.xpi asset to install it.
 
 ### Enjoy
 
@@ -82,5 +80,4 @@ Assuming you have not modified the default config yet, you can check that going 
 To use permits, run `vaxtify permit dailymemes` and check that the websites won't be blocked for 15 minutes.
 You can also run `vaxtify permit dailymemes end` to end it quicker than planned.
 
-After changing the configuration, run `systemctl --user restart vaxtify` to restart Vaxtify.
-Be aware this will also reset all cooldowns and start the restart cooldown, as the daemon does not store state between runs yet.
+After changing the configuration, run `systemctl --user reload vaxtify` to reload the configuration file without resetting cooldowns.

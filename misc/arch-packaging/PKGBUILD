@@ -5,12 +5,19 @@ pkgver=0.1.6
 pkgrel=1
 pkgdesc="Distraction blocker for the stubborn"
 url="https://github.com/unneon/vaxtify"
-arch=('x86_64')
-license=('MPL2')
-depends=('dbus' 'gcc-libs')
-makedepends=('cargo')
-source=("${url}/archive/v${pkgver}.tar.gz")
-sha256sums=('SKIP')
+arch=(x86_64)
+license=(MPL2)
+depends=(dbus gcc-libs)
+makedepends=(cargo)
+source=(
+  "${url}/archive/v${pkgver}.tar.gz"
+  "${url}/releases/download/v${pkgver}/vaxtify-${pkgver}-an+fx.xpi"
+)
+noextract=("vaxtify-${pkgver}-an+fx.xpi")
+sha256sums=(
+  "SKIP"
+  "SKIP"
+)
 
 build() {
   cd "${srcdir}/vaxtify-${pkgver}"
@@ -18,9 +25,11 @@ build() {
 }
 
 package() {
+  cd "${srcdir}"
+  install -Dm644 "vaxtify-${pkgver}-an+fx.xpi" "${pkgdir}/usr/lib/mozilla/extensions/{ec8030f7-c20a-464f-9b0e-13a3a9e97384}/vaxtify@unneon.solar.xpi"
   cd "${srcdir}/vaxtify-${pkgver}"
-  install -Dm755 "target/release/vaxtify" "${pkgdir}/usr/bin/vaxtify"
-  install -Dm644 "misc/systemd-unit/vaxtify.service" "${pkgdir}/etc/systemd/user/vaxtify.service"
   install -Dm644 "misc/dbus-service/solar.unneon.Vaxtify.service" "${pkgdir}/usr/share/dbus-1/services/solar.unneon.Vaxtify.service"
+  install -Dm644 "misc/systemd-unit/vaxtify.service" "${pkgdir}/etc/systemd/user/vaxtify.service"
   install -Dm644 "misc/webextension-manifest/vaxtify.json" "${pkgdir}/usr/lib/mozilla/native-messaging-hosts/vaxtify.json"
+  install -Dm755 "target/release/vaxtify" "${pkgdir}/usr/bin/vaxtify"
 }
