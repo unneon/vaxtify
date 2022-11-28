@@ -62,7 +62,7 @@ permit "dailymemes" {
         since hour=20
         until hour=0
     }
-    categories ["memes"]
+    categories "memes"
 }
 ```
 
