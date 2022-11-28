@@ -1,4 +1,4 @@
-use crate::dbus::client::DevPustaczekVaxtify;
+use crate::dbus::client::SolarUnneonVaxtify;
 use std::time::Duration;
 
 #[derive(Debug)]
@@ -10,7 +10,7 @@ struct Args {
 pub fn run() {
 	let argv = parse_args().unwrap();
 	let conn = dbus::blocking::Connection::new_session().unwrap();
-	let proxy = conn.with_proxy("dev.pustaczek.Vaxtify", "/", Duration::from_millis(500));
+	let proxy = conn.with_proxy("solar.unneon.Vaxtify", "/", Duration::from_millis(500));
 	let permit = argv.permit.as_str();
 	let r = if argv.is_end { proxy.permit_end(permit) } else { proxy.permit_start(permit) };
 	match r {

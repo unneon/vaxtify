@@ -1,4 +1,4 @@
 [D-BUS Service]
-Name=dev.pustaczek.Vaxtify
+Name=solar.unneon.Vaxtify
 Exec=/usr/bin/vaxtify daemon
 SystemdService=vaxtify.service

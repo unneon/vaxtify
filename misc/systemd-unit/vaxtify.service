@@ -3,6 +3,6 @@ Description=Vaxtify, distraction manager for the stubborn
 
 [Service]
 Type=dbus
-BusName=dev.pustaczek.Vaxtify
+BusName=solar.unneon.Vaxtify
 ExecStart=/usr/bin/vaxtify daemon
-ExecReload=busctl --user call dev.pustaczek.Vaxtify / dev.pustaczek.Vaxtify ServiceReload
+ExecReload=busctl --user call solar.unneon.Vaxtify / solar.unneon.Vaxtify ServiceReload

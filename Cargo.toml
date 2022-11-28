@@ -4,7 +4,7 @@ version = "0.1.6"
 authors = ["Mateusz Cegiełka <mateusz@cegla.net>"]
 edition = "2018"
 description = "Distraction blocker for the stubborn"
-repository = "https://github.com/pustaczek/vaxtify"
+repository = "https://github.com/unneon/vaxtify"
 license = "MPL-2.0"
 keywords = ["productivity"]
 

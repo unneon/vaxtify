@@ -45,10 +45,10 @@ impl DBus {
 		let (command_tx, command_rx) = mpsc::channel();
 		std::thread::spawn(move || {
 			let path = Path::new("/").unwrap();
-			let iface = Interface::new("dev.pustaczek.Vaxtify").unwrap();
+			let iface = Interface::new("solar.unneon.Vaxtify").unwrap();
 			let info = build_tree(tx);
 			let conn = LocalConnection::new_session().unwrap();
-			let name_reply = conn.request_name("dev.pustaczek.Vaxtify", false, false, true).unwrap();
+			let name_reply = conn.request_name("solar.unneon.Vaxtify", false, false, true).unwrap();
 			assert_eq!(name_reply, RequestNameReply::PrimaryOwner);
 			info.tree.start_receive(&conn);
 			loop {
@@ -87,7 +87,7 @@ fn build_tree(event_tx: mpsc::Sender<Event>) -> TreeInfo {
 	let signal_refresh = Arc::new(f.signal("TabRefresh", ()));
 	let tree = f.tree(method_channel).add(
 		f.object_path("/", ()).introspectable().add(
-			f.interface("dev.pustaczek.Vaxtify", ())
+			f.interface("solar.unneon.Vaxtify", ())
 				.add_s(signal_close.clone())
 				.add_s(signal_create_empty.clone())
 				.add_s(signal_refresh.clone())
@@ -177,7 +177,7 @@ fn dbus_wait<E: std::error::Error + 'static>(
 	m.tree.get_data().event_tx.send(event).unwrap();
 	match err_rx.recv().unwrap() {
 		Ok(()) => Ok(vec![m.msg.method_return()]),
-		Err(err) => Err(dbus::Error::new_custom("dev.pustaczek.Vaxtify.Error", format_error(&err).as_str()).into()),
+		Err(err) => Err(dbus::Error::new_custom("solar.unneon.Vaxtify.Error", format_error(&err).as_str()).into()),
 	}
 }
 

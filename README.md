@@ -1,4 +1,4 @@
-# Vaxtify [![](https://img.shields.io/github/workflow/status/pustaczek/vaxtify/Continuous%20Integration?logo=github-actions&logoColor=white)](https://github.com/pustaczek/vaxtify/actions) [![](https://img.shields.io/github/license/pustaczek/vaxtify?color=success&logo=github)](https://github.com/pustaczek/vaxtify)
+# Vaxtify [![](https://img.shields.io/github/workflow/status/unneon/vaxtify/Continuous%20Integration?logo=github-actions&logoColor=white)](https://github.com/unneon/vaxtify/actions) [![](https://img.shields.io/github/license/unneon/vaxtify?color=success&logo=github)](https://github.com/unneon/vaxtify)
 
 Vaxtify is a distraction blocker for the stubborn.
 Basically, it automatically closes websites that you may spend too much time on.
@@ -71,13 +71,13 @@ I suggest to check if everything works before editing it.
 
 ### Install the browser extension
 
-View the [latest release](https://github.com/pustaczek/vaxtify/releases/latest) on github and click on the vaxtify.xpi asset.
+View the [latest release](https://github.com/unneon/vaxtify/releases/latest) on github and click on the vaxtify.xpi asset.
 Your browser should download and install it after asking you for permission.
 
 ### Enjoy
 
 The daemon will launch automatically, as soon as you install the web extension (thanks to D-Bus activation).
-Assuming you have not modified the default config yet, you can check that going to [youtube](https://youtube.com), [r/funny](https://www.reddit.com/r/funny), [github.com/pustaczek/icie](https://github.com/pustaczek/icie) or Googling "cat memes" will immediately close the tab, unless it's between 23:30 and 0:00 in local time.
+Assuming you have not modified the default config yet, you can check that going to [youtube](https://youtube.com), [r/funny](https://www.reddit.com/r/funny), [github.com/unneon/icie](https://github.com/unneon/icie) or Googling "cat memes" will immediately close the tab, unless it's between 23:30 and 0:00 in local time.
 
 To use permits, run `vaxtify permit dailymemes` and check that the websites won't be blocked for 15 minutes.
 You can also run `vaxtify permit dailymemes end` to end it quicker than planned.

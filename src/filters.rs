@@ -30,6 +30,6 @@ fn reddit_lowercase() {
 
 #[test]
 fn github() {
-	let url = "https://github.com/pustaczek/icie".parse().unwrap();
-	assert_eq!(extract_github(&url).as_deref(), Some("pustaczek/icie"));
+	let url = "https://github.com/unneon/icie".parse().unwrap();
+	assert_eq!(extract_github(&url).as_deref(), Some("unneon/icie"));
 }

@@ -1,5 +1,5 @@
 use crate::dbus::client::{
-	DevPustaczekVaxtify, DevPustaczekVaxtifyTabClose, DevPustaczekVaxtifyTabCreateEmpty, DevPustaczekVaxtifyTabRefresh,
+	SolarUnneonVaxtify, SolarUnneonVaxtifyTabClose, SolarUnneonVaxtifyTabCreateEmpty, SolarUnneonVaxtifyTabRefresh,
 };
 use crate::webext::message::{deserialize_event, serialize_command, Command, Event};
 use crate::webext::protocol;
@@ -10,7 +10,7 @@ use std::thread;
 use std::time::Duration;
 
 pub fn check_and_run() {
-	if std::env::args().nth(2).as_deref() == Some("vaxtify@pustaczek.dev") {
+	if std::env::args().nth(2).as_deref() == Some("vaxtify@unneon.solar") {
 		run();
 	}
 }
@@ -26,9 +26,9 @@ fn spawn_signals_to_commands() {
 		// TODO: Avoid creating two connections? This caused dropped return values before.
 		let pid = std::process::id();
 		let conn = LocalConnection::new_session().unwrap();
-		let proxy = conn.with_proxy("dev.pustaczek.Vaxtify", "/", Duration::from_millis(5000));
+		let proxy = conn.with_proxy("solar.unneon.Vaxtify", "/", Duration::from_millis(5000));
 		proxy
-			.match_signal(move |h: DevPustaczekVaxtifyTabClose, _: &LocalConnection, _: &Message| {
+			.match_signal(move |h: SolarUnneonVaxtifyTabClose, _: &LocalConnection, _: &Message| {
 				// TODO: Delegate PID filter to dbus instead, somehow?
 				if h.pid == pid {
 					let stdout = std::io::stdout();
@@ -40,7 +40,7 @@ fn spawn_signals_to_commands() {
 			})
 			.unwrap();
 		proxy
-			.match_signal(move |h: DevPustaczekVaxtifyTabCreateEmpty, _: &LocalConnection, _: &Message| {
+			.match_signal(move |h: SolarUnneonVaxtifyTabCreateEmpty, _: &LocalConnection, _: &Message| {
 				if h.pid == pid {
 					let stdout = std::io::stdout();
 					let mut stdout = stdout.lock();
@@ -51,7 +51,7 @@ fn spawn_signals_to_commands() {
 			})
 			.unwrap();
 		proxy
-			.match_signal(move |_: DevPustaczekVaxtifyTabRefresh, _: &LocalConnection, _: &Message| {
+			.match_signal(move |_: SolarUnneonVaxtifyTabRefresh, _: &LocalConnection, _: &Message| {
 				let stdout = std::io::stdout();
 				let mut stdout = stdout.lock();
 				protocol::write(&serialize_command(Command::Refresh {}), &mut stdout).unwrap();
@@ -70,7 +70,7 @@ fn run_events_to_calls() {
 	let conn = LocalConnection::new_session().unwrap();
 	let stdin = std::io::stdin();
 	let mut stdin = stdin.lock();
-	let proxy = conn.with_proxy("dev.pustaczek.Vaxtify", "/", Duration::from_millis(5000));
+	let proxy = conn.with_proxy("solar.unneon.Vaxtify", "/", Duration::from_millis(5000));
 	proxy.browser_register(pid).unwrap();
 	while let Ok(message) = protocol::read(&mut stdin) {
 		match deserialize_event(&message) {
