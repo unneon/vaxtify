@@ -4,7 +4,6 @@ mod kdl_time;
 use chrono::{DateTime, Local, NaiveTime};
 use knuffel::Decode;
 use std::collections::HashSet;
-use std::hash::Hash;
 #[cfg(test)]
 use std::time::Duration;
 
@@ -108,7 +107,24 @@ impl Config {
 		check_unique_names(&config.categories, |c| &c.name)?;
 		check_unique_names(&config.rules, |r| &r.name)?;
 		check_unique_names(&config.permits, |p| &p.name)?;
+		config.check_categories_exist(&config.rules, |r| &r.categories)?;
+		config.check_categories_exist(&config.permits, |p| &p.categories)?;
 		Ok(config)
+	}
+
+	fn check_categories_exist<T>(
+		&self,
+		blocks: &[T],
+		block_categories: impl Fn(&T) -> &[String],
+	) -> Result<(), ConfigError> {
+		for block in blocks {
+			for category in block_categories(block) {
+				if !self.categories.iter().any(|c| c.name == *category) {
+					return Err(ConfigError::ValidationFailure { details: "category does not exist" });
+				}
+			}
+		}
+		Ok(())
 	}
 }
 
@@ -152,8 +168,8 @@ fn upper_bound_with_time(greater_than: &DateTime<Local>, set_time: &NaiveTime) -
 	candidate.and_time(*set_time).unwrap()
 }
 
-fn check_unique_names<T, U: Eq + Hash>(blocks: &[T], name: impl Fn(&T) -> &U) -> Result<(), ConfigError> {
-	let set: HashSet<&U> = blocks.iter().map(name).collect();
+fn check_unique_names<T>(blocks: &[T], name: impl Fn(&T) -> &str) -> Result<(), ConfigError> {
+	let set: HashSet<&str> = blocks.iter().map(name).collect();
 	if set.len() != blocks.len() {
 		return Err(ConfigError::ValidationFailure { details: "blocks of the same type can't have identical names" });
 	}
@@ -286,6 +302,39 @@ fn assert_duplicate_error(text: &str) {
 	if let Err(e) = &result {
 		if let ConfigError::ValidationFailure { details } = e {
 			assert_eq!(*details, "blocks of the same type can't have identical names");
+			return;
+		}
+	}
+	panic!("{:?}", result);
+}
+
+#[test]
+fn category_in_rule_does_not_exist() {
+	let text = r#"
+rule "never" {
+	categories "example"
+}
+"#;
+	assert_category_does_not_exist_error(text);
+}
+
+#[test]
+fn category_in_permit_does_not_exist() {
+	let text = r#"
+permit "sometimes" {
+	length mins=60
+	categories "example"
+}
+"#;
+	assert_category_does_not_exist_error(text);
+}
+
+#[cfg(test)]
+fn assert_category_does_not_exist_error(text: &str) {
+	let result = Config::parse(text);
+	if let Err(e) = &result {
+		if let ConfigError::ValidationFailure { details } = e {
+			assert_eq!(*details, "category does not exist");
 			return;
 		}
 	}
