@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "vaxtify",
   "description": "Distraction blocker for the stubborn",
-  "version": "0.1.6",
+  "version": "0.2.0",
   "browser_specific_settings": {
     "gecko": {
       "id": "vaxtify@unneon.solar",
